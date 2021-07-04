@@ -10,3 +10,8 @@ section=events
 ;events=on_caret
 events=on_open,on_save,on_state,on_focus
 
+[item100]
+section=commands
+caption=Breadcrumbs\Config
+method=config
+menu=o

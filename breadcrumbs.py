@@ -12,6 +12,15 @@ from cudatext import *
 * handle hidden CodeTree
 """
 
+dir_settings = app_path(APP_DIR_SETTINGS)
+fn_config    = os.path.join(dir_settings, 'plugins.ini')
+OPT_SEC      = 'breadcrumbs'
+
+opt_root_dir_source = [0]
+opt_show_root_parents = True
+
+PROJECT_DIR = None
+
 SHOW_CODE = False
 
 #CodeItem = namedtuple('CodeItem', 'name icon')
@@ -19,6 +28,9 @@ SHOW_CODE = False
 h_tree      = app_proc(PROC_GET_CODETREE, "")
 h_im_tree   = tree_proc(h_tree, TREE_GET_IMAGELIST)
 
+
+def bool_to_str(v): return '1' if v else '0'
+def str_to_bool(s): return s=='1'
 
 def get_carets_tree_path():
     if not SHOW_CODE:
@@ -68,19 +80,59 @@ def get_carets_tree_path():
             return names
     return ()
 
+def get_project_dir():
+    """ choose project root directory: .opt_root_dir_source
+    """
+    import cuda_project_man
+
+    path = None
+    for optval in opt_root_dir_source:
+        if optval == 0: # project file dir
+            path = cuda_project_man.project_variables()["ProjDir"]
+        elif optval == 1: # first node
+            _nodes = cuda_project_man.global_project_info.get('nodes')
+            path = _nodes[0] if _nodes else None
+        elif optval == 2: # project's main-file dir
+            path = cuda_project_man.global_project_info.get('mainfile')
+            if path:
+                path = os.path.dirname(path)
+
+        if path:
+            return path
 
 
 class Command:
 
     def __init__(self):
+        self._load_config()
+
         self._ed_uis = {} # h_ed -> Bread
         self.is_loading_sesh = False
 
         Colors.update()
 
-    def config(self):
-        pass
+    def _load_config(self):
+        global PROJECT_DIR
+        global opt_root_dir_source
+        global opt_show_root_parents
 
+        PROJECT_DIR = get_project_dir()
+
+        _root_dir_source_val = ini_read(fn_config, OPT_SEC, 'root_dir_source', '0')
+        try:
+            opt_root_dir_source = list(map(int, _root_dir_source_val.split(',') ))
+        except:
+            print('NOTE: Breadcrumbs - Unable to parse option value: "root_dir_source" should be '
+                    + 'comma-separated string of integers 0-2')
+
+        opt_show_root_parents = str_to_bool(ini_read(fn_config, OPT_SEC, 'show_root_parents', '1'))
+
+
+    def config(self):
+        _root_dir_source_str = ','.join(map(str, opt_root_dir_source))
+        ini_write(fn_config, OPT_SEC, 'root_dir_source',   _root_dir_source_str)
+        ini_write(fn_config, OPT_SEC, 'show_root_parents', bool_to_str(opt_show_root_parents) )
+        file_open(fn_config)
 
     #def on_caret(self, ed_self):
         #self._update(ed_self)
@@ -114,6 +166,17 @@ class Command:
             for edt in filter(None, visible_eds):
                 self.on_open(edt)
 
+        elif state == APPSTATE_PROJECT:
+            global PROJECT_DIR
+
+            new_project_dir = get_project_dir()
+            if PROJECT_DIR != new_project_dir:
+                PROJECT_DIR = new_project_dir
+                for bread in self._ed_uis.values():
+                    bread.update()
+
+
+
         #elif state == APPSTATE_CODETREE_AFTER_FILL:
             #self._update(ed)
 
@@ -144,6 +207,7 @@ class Bread:
         self.ed = Editor(ed_self.get_prop(PROP_HANDLE_SELF))  if ed_self is ed else  ed_self
 
         self._tree = None
+        self._root = None
         self._path_items = []
         self._code_items = []
 
@@ -181,14 +245,28 @@ class Bread:
         statusbar_proc(self.h_sb, STATUSBAR_DELETE_ALL)
 
     def update(self):
-        path_items = Path(self.fn).parts
+        root_changed = self._root != PROJECT_DIR
+        self._root = PROJECT_DIR
+        if not opt_show_root_parents  and  self._root  and  self.fn.startswith(self._root):
+            root = Path(self._root)
+            path_items = Path(self.fn).relative_to(root.parent).parts
+        else:
+            path_items = Path(self.fn).parts
+
         code_items = get_carets_tree_path()
 
-        if self._path_items == path_items  and  self._code_items == code_items:
+        # no changes
+        if not root_changed  and  self._path_items == path_items  and  self._code_items == code_items:
             return
 
-        if len(self._path_items) != len(path_items)  or  len(self._code_items) != len(code_items):
-            self._update_bgs(len(path_items), len(code_items))
+        if root_changed \
+                or len(self._path_items) != len(path_items) \
+                or len(self._code_items) != len(code_items):
+            if opt_show_root_parents  and  self._root  and  self.fn.startswith(self._root):
+                _n_prefix = len(Path(self._root).parent.parts)
+            else:
+                _n_prefix = 0
+            self._update_bgs(len(path_items),  len(code_items),  _n_prefix)
 
         # update changed  PATH  cells
         for i,(old,new) in enumerate(zip_longest(self._path_items, path_items)):
@@ -218,6 +296,8 @@ class Bread:
         # if path-item click
         if cell_ind < len(self._path_items):
             path = Path(*self._path_items[:cell_ind+1])
+            if self._root  and  not opt_show_root_parents: # add root if is hidden
+                path = Path(self._root).parent / path
             btn_rect = self._get_cell_rect(cell_ind)
             _parent = path.parent.as_posix()  if path.parent else  path.as_posix()
             self.tree.show_dir(fn=path.as_posix(), root=_parent, btn_rect=btn_rect)
@@ -242,10 +322,10 @@ class Bread:
         statusbar_proc(self.h_sb, STATUSBAR_SET_COLOR_BORDER_TOP, value=Colors.border)
 
 
-    def _update_bgs(self, n_path, n_code):
-        old_n_path = len(self._path_items)  if self._path_items else  0
-        old_n_code = len(self._code_items)  if self._code_items else  0
-        old_n_total = old_n_path + old_n_code
+    def _update_bgs(self, n_path, n_code, n_prefix):
+        _old_n_path = len(self._path_items)  if self._path_items else  0
+        _old_n_code = len(self._code_items)  if self._code_items else  0
+        old_n_total = _old_n_path + _old_n_code
 
         new_n_total = n_path + n_code
 
@@ -259,22 +339,13 @@ class Bread:
             for i in range(old_n_total - new_n_total):
                 statusbar_proc(self.h_sb, STATUSBAR_DELETE_CELL, index=new_n_total)
 
-        # need more path cells (if less - will be ovewritten by code cells)
-        if old_n_path < n_path:
-            for i in range(old_n_path, n_path): # update new path cells bg+fg
-                set_cell_colors(self.h_sb, i, bg=Colors.path_bg, fg=Colors.path_fg)
-        # paint new start code cells
-        elif old_n_path > n_path:   # code cells start earlier than before
-            n_new_code_start = min(old_n_path-n_path, n_code) # unpainted code cells at the beginning
-            for i in range(n_path, n_path+n_new_code_start): # update new code cells bg+fg at beginning
-                set_cell_colors(self.h_sb, i, bg=Colors.code_bg, fg=Colors.code_fg)
+        for i in range(n_path): # update path cells bg+fg
+            _bg = Colors.path_bg  if not opt_show_root_parents or i >= n_prefix else  Colors.path_bg_root_parents
+            set_cell_colors(self.h_sb, i, bg=_bg, fg=Colors.path_fg)
 
-        ### paint new end code cells
-        # min: all added cells  |  start of previous code  |  number of new code cells
-        n_new_code_end = min(new_n_total - old_n_total,  new_n_total - old_n_path,  n_code)
-        if n_new_code_end > 0:
-            for i in range(new_n_total-n_new_code_end, new_n_total): # update new code cells bg+fg at the end
-                set_cell_colors(self.h_sb, i, bg=Colors.code_bg, fg=Colors.code_fg)
+        for i in range(n_path, n_path+n_code): # update code cells bg+fg
+            set_cell_colors(self.h_sb, i, bg=Colors.code_bg, fg=Colors.code_fg)
+
 
     def _get_cell_rect(self, ind):
         """ returns screen coords: x,y, w,h
@@ -293,8 +364,6 @@ class Bread:
             sb_screen_coords[1],        # y
             cell_w,  # w
             h,       # h
-            #sb_screen_coords[0]+x+cell_x + cell_w, # right
-            #sb_screen_coords[1]+y + h,             # bottom
         )
 
 
@@ -309,6 +378,7 @@ class Colors:
 
         cls.path_bg = colors['TabBg'        ]['color']
         cls.path_fg = colors['TabFont'      ]['color']
+        cls.path_bg_root_parents = colors['SideBg']['color']
 
         cls.code_bg = colors['TabActive'    ]['color']
         cls.code_fg = colors['TabFontActive']['color']
