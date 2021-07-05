@@ -332,6 +332,8 @@ class Bread:
                     path = Path(self._root).parent / path
                 elif opt_tilde_home  and  self._root == USER_DIR:
                     path = Path(self._root) / path.relative_to('~')
+                elif self._root:
+                    path = Path(self._root) / path
 
             btn_rect = self._get_cell_rect(cell_ind)
             _parent = path.parent.as_posix()  if path.parent else  path.as_posix()
@@ -414,8 +416,8 @@ class Bread:
     def _get_path_items(self):
         root_changed = False
         ### if need to hide project parents
-        if not opt_show_root_parents  and  self._root  and  self.fn.startswith(self._root):
-            root_changed = self._root != PROJECT_DIR
+        if not opt_show_root_parents  and  PROJECT_DIR  and  self.fn.startswith(PROJECT_DIR):
+            root_changed = self._root !=  PROJECT_DIR
             self._root = PROJECT_DIR
             _root = Path(self._root)
             path_items = Path(self.fn).relative_to(_root.parent).parts
@@ -425,6 +427,11 @@ class Bread:
             self._root = USER_DIR
             _root = Path(self._root)
             path_items = ('~',) + Path(self.fn).relative_to(_root).parts
+
+        elif self.fn.startswith('/'):
+            self._root = '/'
+            _root = Path(self._root)
+            path_items = Path(self.fn).relative_to(_root).parts
 
         ### full path
         else:
