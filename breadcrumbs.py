@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 #from collections import namedtuple
 from itertools import zip_longest
@@ -88,6 +89,9 @@ def get_carets_tree_path():
 def get_project_dir():
     """ choose project root directory: .opt_root_dir_source
     """
+    if 'cuda_project_man' not in sys.modules:
+        return None
+
     import cuda_project_man
 
     path = None
