@@ -19,6 +19,7 @@ Options description:
 	* "name" - sort by filename (default)
 	* "ext" - sort by extension
 * "tilde_home" - (unix only) replace home directory path by a single item: `~`
+* "show_hidden_files" - whether to show hidden files in tree-dialog (hidden by default)
     
 
 Author: halfbrained (https://github.com/halfbrained)

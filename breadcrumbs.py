@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from collections import namedtuple
+#from collections import namedtuple
 from itertools import zip_longest
 
 from cudatext import *
@@ -20,6 +20,7 @@ opt_root_dir_source   = [0]
 opt_show_root_parents = True
 opt_tilde_home        = True
 opt_file_sort_type    = 'name'
+opt_show_hidden_files = False
 
 PROJECT_DIR = None
 IS_UNIX     = app_proc(PROC_GET_OS_SUFFIX, '') not in ['', '__mac']
@@ -121,6 +122,7 @@ class Command:
         global opt_show_root_parents
         global opt_file_sort_type
         global opt_tilde_home
+        global opt_show_hidden_files
 
         PROJECT_DIR = get_project_dir()
 
@@ -134,6 +136,7 @@ class Command:
         opt_show_root_parents = str_to_bool(ini_read(fn_config, OPT_SEC, 'show_root_parents', '1'))
         opt_file_sort_type = ini_read(fn_config, OPT_SEC, 'file_sort_type', opt_file_sort_type)
         opt_tilde_home = str_to_bool(ini_read(fn_config, OPT_SEC, 'tilde_home', '1'))
+        opt_show_hidden_files = str_to_bool(ini_read(fn_config, OPT_SEC, 'show_hidden_files', '0'))
 
 
     def config(self):
@@ -142,6 +145,7 @@ class Command:
         ini_write(fn_config, OPT_SEC, 'show_root_parents', bool_to_str(opt_show_root_parents) )
         ini_write(fn_config, OPT_SEC, 'file_sort_type', opt_file_sort_type)
         ini_write(fn_config, OPT_SEC, 'tilde_home', bool_to_str(opt_tilde_home) )
+        ini_write(fn_config, OPT_SEC, 'show_hidden_files', bool_to_str(opt_show_hidden_files) )
         file_open(fn_config)
 
     #def on_caret(self, ed_self):
@@ -235,7 +239,10 @@ class Bread:
 
             from .dlg import TreeDlg
 
-            self._tree = TreeDlg(opts={'sort_type':opt_file_sort_type})
+            self._tree = TreeDlg(opts={
+                'sort_type':         opt_file_sort_type,
+                'show_hidden_files': opt_show_hidden_files,
+            })
         return self._tree
 
     def _add_ui(self):

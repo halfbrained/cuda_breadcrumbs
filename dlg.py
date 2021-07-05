@@ -9,9 +9,13 @@ from cudatext import *
 * search
 """
 
+IS_WIN = app_proc(PROC_GET_OS_SUFFIX, '') == ''
+
 VK_ENTER = 13
 VK_ESCAPE = 27
 VK_SPACE = 0x20
+FILE_ATTRIBUTE_HIDDEN = 2 # stat.FILE_ATTRIBUTE_HIDDEN (for windows)
+
 
 DLG_W = 250
 DLG_H = 400
@@ -19,6 +23,7 @@ DLG_H = 400
 
 SORT_TYPE = 'name'
 SORT_REVERSE = False
+SHOW_HIDDEN_FILES = False
 
 
 class TreeDlg:
@@ -28,6 +33,7 @@ class TreeDlg:
 
     def __init__(self, opts=None):
         global SORT_TYPE
+        global SHOW_HIDDEN_FILES
 
         self.h = None
         self.data = None
@@ -35,10 +41,9 @@ class TreeDlg:
 
         self._mode = self.MODE_NONE
 
-        self._tree_busy = False
-
         if opts:
-            SORT_TYPE = opts.get('sort_type', SORT_TYPE)
+            SORT_TYPE         = opts.get('sort_type',         SORT_TYPE)
+            SHOW_HIDDEN_FILES = opts.get('show_hidden_files', SHOW_HIDDEN_FILES)
 
 
     def init_form(self):
@@ -168,6 +173,9 @@ class TreeDlg:
             self.id_map.clear()
 
         for ch in children:
+            if not SHOW_HIDDEN_FILES  and  ch.is_hidden:
+                continue
+
             if ch.is_dir:
                 im_ind = FileIcons.get_dir_ic_ind(default=-1)
             else:
@@ -186,7 +194,7 @@ def load_filepath_tree(fn, root):
     """
     rel_path = fn.relative_to(root)
 
-    data = Node(root.as_posix(), True, parent=None, children=[])
+    data = Node(root.as_posix(), is_dir=True, is_hidden=False, parent=None, children=[])
     path = root
     item = data
     path_parts = list(rel_path.parts)
@@ -208,9 +216,18 @@ def load_dir(path, parent=None):
         parent - parent `Node` for loaded children
     """
     items = []
-    for entry in os.scandir(path):
-        children = [] if entry.is_dir() else ()
-        items.append( Node(entry.name,  entry.is_dir(),  parent=parent,  children=children) )
+    try:
+        for entry in os.scandir(path):
+            children = [] if entry.is_dir() else ()
+            if IS_WIN:
+                is_hidden = bool(entry.stat().st_file_attributes & FILE_ATTRIBUTE_HIDDEN)
+            else:
+                is_hidden = entry.name.startswith('.')
+            items.append( Node(entry.name,  entry.is_dir(), is_hidden,  parent=parent,  children=children) )
+    except PermissionError:
+        print('PermissionError: can\'t open: {}'.format(path))
+    except os.error:
+        pass
 
     # sort, name or extension
     if SORT_TYPE == 'ext':
@@ -232,12 +249,13 @@ def get_data_item(path_names, data):
 
 
 class Node:
-    __slots__ = ['name', 'ext', 'is_dir', 'parent', 'children', 'id']
+    __slots__ = ['name', 'ext', 'is_dir', 'is_hidden', 'parent', 'children', 'id']
 
-    def __init__(self, name, is_dir, parent, children=(), id_=None):
+    def __init__(self, name, is_dir, is_hidden, parent, children=(), id_=None):
         self.name = name
         self.ext = os.path.splitext(name)[1].lower()  if not is_dir else  ''
         self.is_dir = is_dir
+        self.is_hidden = is_hidden
         self.parent = parent
         self.children = children
         self.id = id_
