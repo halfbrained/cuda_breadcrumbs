@@ -18,6 +18,7 @@ Options description:
 * "file_sort_type" - how files in the tree-dialog are sorted:
 	* "name" - sort by filename (default)
 	* "ext" - sort by extension
+* "tilde_home" - (unix only) replace home directory path by a single item: `~`
     
 
 Author: halfbrained (https://github.com/halfbrained)

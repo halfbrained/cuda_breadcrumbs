@@ -16,11 +16,14 @@ dir_settings = app_path(APP_DIR_SETTINGS)
 fn_config    = os.path.join(dir_settings, 'plugins.ini')
 OPT_SEC      = 'breadcrumbs'
 
-opt_root_dir_source = [0]
+opt_root_dir_source   = [0]
 opt_show_root_parents = True
-opt_file_sort_type = 'name'
+opt_tilde_home        = True
+opt_file_sort_type    = 'name'
 
 PROJECT_DIR = None
+IS_UNIX     = app_proc(PROC_GET_OS_SUFFIX, '') not in ['', '__mac']
+USER_DIR    = os.path.expanduser('~')
 
 SHOW_CODE = False
 
@@ -117,6 +120,7 @@ class Command:
         global opt_root_dir_source
         global opt_show_root_parents
         global opt_file_sort_type
+        global opt_tilde_home
 
         PROJECT_DIR = get_project_dir()
 
@@ -129,6 +133,7 @@ class Command:
 
         opt_show_root_parents = str_to_bool(ini_read(fn_config, OPT_SEC, 'show_root_parents', '1'))
         opt_file_sort_type = ini_read(fn_config, OPT_SEC, 'file_sort_type', opt_file_sort_type)
+        opt_tilde_home = str_to_bool(ini_read(fn_config, OPT_SEC, 'tilde_home', '1'))
 
 
     def config(self):
@@ -136,6 +141,7 @@ class Command:
         ini_write(fn_config, OPT_SEC, 'root_dir_source',   _root_dir_source_str)
         ini_write(fn_config, OPT_SEC, 'show_root_parents', bool_to_str(opt_show_root_parents) )
         ini_write(fn_config, OPT_SEC, 'file_sort_type', opt_file_sort_type)
+        ini_write(fn_config, OPT_SEC, 'tilde_home', bool_to_str(opt_tilde_home) )
         file_open(fn_config)
 
     #def on_caret(self, ed_self):
@@ -252,14 +258,7 @@ class Bread:
         statusbar_proc(self.h_sb, STATUSBAR_DELETE_ALL)
 
     def update(self):
-        root_changed = self._root != PROJECT_DIR
-        self._root = PROJECT_DIR
-        if not opt_show_root_parents  and  self._root  and  self.fn.startswith(self._root):
-            root = Path(self._root)
-            path_items = Path(self.fn).relative_to(root.parent).parts
-        else:
-            path_items = Path(self.fn).parts
-
+        path_items, root_changed = self._get_path_items()
         code_items = get_carets_tree_path()
 
         # no changes
@@ -269,8 +268,8 @@ class Bread:
         if root_changed \
                 or len(self._path_items) != len(path_items) \
                 or len(self._code_items) != len(code_items):
-            if opt_show_root_parents  and  self._root  and  self.fn.startswith(self._root):
-                _n_prefix = len(Path(self._root).parent.parts)
+            if opt_show_root_parents  and  PROJECT_DIR  and  self.fn.startswith(PROJECT_DIR):
+                _n_prefix = len(Path(PROJECT_DIR).parent.parts)
             else:
                 _n_prefix = 0
             self._update_bgs(len(path_items),  len(code_items),  _n_prefix)
@@ -303,8 +302,13 @@ class Bread:
         # if path-item click
         if cell_ind < len(self._path_items):
             path = Path(*self._path_items[:cell_ind+1])
-            if self._root  and  not opt_show_root_parents: # add root if is hidden
-                path = Path(self._root).parent / path
+            if self._root:
+                # add project root if is hidden
+                if not opt_show_root_parents  and  self._root == PROJECT_DIR:
+                    path = Path(self._root).parent / path
+                elif opt_tilde_home  and  self._root == USER_DIR:
+                    path = Path(self._root) / path.relative_to('~')
+
             btn_rect = self._get_cell_rect(cell_ind)
             _parent = path.parent.as_posix()  if path.parent else  path.as_posix()
             self.tree.show_dir(fn=path.as_posix(), root=_parent, btn_rect=btn_rect)
@@ -372,6 +376,28 @@ class Bread:
             cell_w,  # w
             h,       # h
         )
+
+    def _get_path_items(self):
+        root_changed = False
+        ### if need to hide project parents
+        if not opt_show_root_parents  and  self._root  and  self.fn.startswith(self._root):
+            root_changed = self._root != PROJECT_DIR
+            self._root = PROJECT_DIR
+            _root = Path(self._root)
+            path_items = Path(self.fn).relative_to(_root.parent).parts
+
+        ### if need to collapse home-dir
+        elif IS_UNIX  and  opt_tilde_home  and  self.fn.startswith(USER_DIR):
+            self._root = USER_DIR
+            _root = Path(self._root)
+            path_items = ('~',) + Path(self.fn).relative_to(_root).parts
+
+        ### full path
+        else:
+            self._root = None
+            path_items = Path(self.fn).parts
+
+        return path_items, root_changed
 
 
 
