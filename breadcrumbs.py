@@ -157,14 +157,15 @@ class Command:
 
     def on_open(self, ed_self):
         if not self.is_loading_sesh:
-            self._update(ed_self)
+            bc = self._get_bread(ed_self)
+            bc.on_fn_change()
 
     def on_save(self, ed_self):
         h_ed = ed_self.get_prop(PROP_HANDLE_SELF)
 
         bc = self._ed_uis.get(h_ed)
         if bc:
-            bc.on_save()
+            bc.on_fn_change()
 
     def on_focus(self, ed_self):
         if ed_self.get_prop(PROP_HANDLE_SELF) not in self._ed_uis:
@@ -208,6 +209,10 @@ class Command:
 
 
     def _update(self, ed_self):
+        bc = self._get_bread(ed_self)
+        bc.update()
+
+    def _get_bread(self, ed_self):
         h_ed = ed_self.get_prop(PROP_HANDLE_SELF)
 
         bc = self._ed_uis.get(h_ed)
@@ -215,7 +220,7 @@ class Command:
             bc = Bread(ed_self)
             self._ed_uis[h_ed] = bc
 
-        bc.update()
+        return bc
 
     @property
     def current(self):
@@ -348,7 +353,7 @@ class Bread:
         statusbar_proc(self.h_sb, STATUSBAR_SET_COLOR_BORDER_R, value=Colors.border)
         statusbar_proc(self.h_sb, STATUSBAR_SET_COLOR_BORDER_TOP, value=Colors.border)
 
-    def on_save(self):
+    def on_fn_change(self):
         self.fn = self.ed.get_filename()
 
         if self.fn  and  not self._tree:
