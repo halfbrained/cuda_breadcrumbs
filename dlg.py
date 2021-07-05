@@ -35,6 +35,8 @@ class TreeDlg:
 
         self._mode = self.MODE_NONE
 
+        self._tree_busy = False
+
         if opts:
             SORT_TYPE = opts.get('sort_type', SORT_TYPE)
 
@@ -62,7 +64,8 @@ class TreeDlg:
         dlg_proc(h, DLG_CTL_PROP_SET, index=n, prop={
                 'name': 'tree',
                 'align': ALIGN_CLIENT,
-                'on_click_dbl': self.tree_on_click_dbl,
+                'on_change': self.tree_on_click,
+                #'on_click_dbl': self.tree_on_click_dbl,
                 })
         self.h_tree = dlg_proc(h, DLG_CTL_HANDLE, index=n)
         tree_proc(self.h_tree, TREE_THEME)
@@ -111,7 +114,7 @@ class TreeDlg:
         dlg_proc(self.h, DLG_HIDE)
 
 
-    def tree_on_click_dbl(self, id_dlg, id_ctl, data='', info=''):
+    def tree_on_click(self, id_dlg, id_ctl, data='', info=''):
         if self._activate_item():
             self.hide()
 
@@ -143,8 +146,10 @@ class TreeDlg:
 
         sel_item = self.id_map[id_item]
         if not sel_item.is_dir:     # open file
-            file_open(sel_item.full_path)
-            return True
+            path = sel_item.full_path
+            if path != ed.get_filename():
+                file_open(path)
+                return True
 
         else:   # load directory
             if not sel_item.children: # not checked yet
