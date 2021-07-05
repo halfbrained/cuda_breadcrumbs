@@ -20,6 +20,7 @@ Options description:
 	* "ext" - sort by extension
 * "tilde_home" - (unix only) replace home directory path by a single item: `~`
 * "show_hidden_files" - whether to show hidden files in tree-dialog (hidden by default)
+* "max_name_len" - max file/directory name length on breadcrumbs bar
     
 
 Author: halfbrained (https://github.com/halfbrained)

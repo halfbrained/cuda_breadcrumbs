@@ -22,6 +22,7 @@ opt_show_root_parents = True
 opt_tilde_home        = True
 opt_file_sort_type    = 'name'
 opt_show_hidden_files = False
+opt_max_name_len   = 25
 
 PROJECT_DIR = None
 IS_UNIX     = app_proc(PROC_GET_OS_SUFFIX, '') not in ['', '__mac']
@@ -127,6 +128,7 @@ class Command:
         global opt_file_sort_type
         global opt_tilde_home
         global opt_show_hidden_files
+        global opt_max_name_len
 
         PROJECT_DIR = get_project_dir()
 
@@ -141,6 +143,7 @@ class Command:
         opt_file_sort_type = ini_read(fn_config, OPT_SEC, 'file_sort_type', opt_file_sort_type)
         opt_tilde_home = str_to_bool(ini_read(fn_config, OPT_SEC, 'tilde_home', '1'))
         opt_show_hidden_files = str_to_bool(ini_read(fn_config, OPT_SEC, 'show_hidden_files', '0'))
+        opt_max_name_len = int(ini_read(fn_config, OPT_SEC, 'max_name_len', str(opt_max_name_len)))
 
 
     def config(self):
@@ -150,6 +153,7 @@ class Command:
         ini_write(fn_config, OPT_SEC, 'file_sort_type', opt_file_sort_type)
         ini_write(fn_config, OPT_SEC, 'tilde_home', bool_to_str(opt_tilde_home) )
         ini_write(fn_config, OPT_SEC, 'show_hidden_files', bool_to_str(opt_show_hidden_files) )
+        ini_write(fn_config, OPT_SEC, 'max_name_len', str(opt_max_name_len) )
         file_open(fn_config)
 
     #def on_caret(self, ed_self):
@@ -301,6 +305,8 @@ class Bread:
         # update changed  PATH  cells
         for i,(old,new) in enumerate(zip_longest(self._path_items, path_items)):
             if old != new  and  new is not None:
+                if len(new) > opt_max_name_len:
+                    new = ellipsize(new)
                 statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_TEXT, index=i, value=new)
                 _h_ed = self.ed.get_prop(PROP_HANDLE_SELF)
                 _callback = "module={};cmd={};info={}:{};".format(
@@ -310,7 +316,10 @@ class Bread:
         offset = len(path_items)
         for i,(old,new) in enumerate(zip_longest(self._code_items, code_items)):
             if old != new  and  new is not None:
-                statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_TEXT, index=i+offset, value=str(new))
+                new = str(new)
+                if len(new) > opt_max_name_len:
+                    new = ellipsize(new)
+                statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_TEXT, index=i+offset, value=new)
                 '!!!'
                 # update icons from tree data
                 #statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_TEXT, index=i, value=new)
@@ -463,3 +472,8 @@ class Colors:
 def set_cell_colors(h_sb, ind, bg, fg):
     statusbar_proc(h_sb, STATUSBAR_SET_CELL_COLOR_BACK, index=ind, value=bg)
     statusbar_proc(h_sb, STATUSBAR_SET_CELL_COLOR_FONT, index=ind, value=fg)
+
+def ellipsize(s):
+    _start = opt_max_name_len//2
+    _end = opt_max_name_len - _start
+    return s[:_start] + '...' + s[-_end:]
