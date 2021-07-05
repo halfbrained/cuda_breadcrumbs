@@ -103,9 +103,19 @@ class TreeDlg:
 
         # set dlg position
         x,y, w,h = btn_rect
+        dlg_y = y-DLG_H
+        dlg_x = x
+        if dlg_y < 0: # if dialog doesnt fit on top - show it to the right of clicked button
+            dlg_y = 0
+            dlg_x = x+w
+
+        _screen_rect = app_proc(PROC_COORD_MONITOR, '')
+        if dlg_x+DLG_W > _screen_rect[2]: # if doesnt fit on right - clamp to screen
+            dlg_x = _screen_rect[2]-DLG_W
+
         dlg_proc(self.h, DLG_PROP_SET, prop={
-            'x': x+w,
-            'y': y+h-DLG_H,
+            'x': dlg_x,
+            'y': dlg_y,
         })
 
         dlg_proc(self.h, DLG_SHOW_MODAL)
