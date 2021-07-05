@@ -152,7 +152,11 @@ class Command:
             self._update(ed_self)
 
     def on_save(self, ed_self):
-        self._update(ed_self)
+        h_ed = ed_self.get_prop(PROP_HANDLE_SELF)
+
+        bc = self._ed_uis.get(h_ed)
+        if bc:
+            bc.on_save()
 
     def on_focus(self, ed_self):
         if ed_self.get_prop(PROP_HANDLE_SELF) not in self._ed_uis:
@@ -213,20 +217,17 @@ class Command:
 class Bread:
     def __init__(self, ed_self):
         self.ed = Editor(ed_self.get_prop(PROP_HANDLE_SELF))  if ed_self is ed else  ed_self
+        self.fn = ed.get_filename()
 
         self._tree = None
         self._root = None
         self._path_items = []
         self._code_items = []
 
-        self._add_ui()
-        self.reset()
-        self.on_theme()
-
-
-    @property
-    def fn(self):
-        return self.ed.get_filename()  or  self.ed.get_prop(PROP_TAB_TITLE)
+        if self.fn:
+            self._add_ui()
+            self.reset()
+            self.on_theme()
 
     @property
     def tree(self):
@@ -246,7 +247,8 @@ class Bread:
             #'align': ALIGN_TOP,
         })
         try:
-            statusbar_proc(self.h_sb, STATUSBAR_SET_PADDING, value=2) # api=399
+            statusbar_proc(self.h_sb, STATUSBAR_SET_PADDING, value=4) # api=399
+            statusbar_proc(self.h_sb, STATUSBAR_SET_SEPARATOR, value='>')
         except NameError:
             pass
 
@@ -258,6 +260,9 @@ class Bread:
         statusbar_proc(self.h_sb, STATUSBAR_DELETE_ALL)
 
     def update(self):
+        if not self.fn:
+            return
+
         path_items, root_changed = self._get_path_items()
         code_items = get_carets_tree_path()
 
@@ -331,6 +336,16 @@ class Bread:
 
         statusbar_proc(self.h_sb, STATUSBAR_SET_COLOR_BORDER_R, value=Colors.border)
         statusbar_proc(self.h_sb, STATUSBAR_SET_COLOR_BORDER_TOP, value=Colors.border)
+
+    def on_save(self):
+        self.fn = self.ed.get_filename()
+
+        if self.fn  and  not self._tree:
+            self._add_ui()
+            self.reset()
+            self.on_theme()
+
+        self.update()
 
 
     def _update_bgs(self, n_path, n_code, n_prefix):
