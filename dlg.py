@@ -17,17 +17,27 @@ DLG_W = 250
 DLG_H = 400
 
 
+SORT_TYPE = 'name'
+SORT_REVERSE = False
+
+
 class TreeDlg:
     MODE_NONE = 10
     MODE_FILE = 11
     MODE_CODE = 12
 
-    def __init__(self):
+    def __init__(self, opts=None):
+        global SORT_TYPE
+
         self.h = None
         self.data = None
         self.id_map = {} # tree id -> `Node`
 
         self._mode = self.MODE_NONE
+
+        if opts:
+            SORT_TYPE = opts.get('sort_type', SORT_TYPE)
+
 
     def init_form(self):
         h = dlg_proc(0, DLG_CREATE)
@@ -196,7 +206,14 @@ def load_dir(path, parent=None):
     for entry in os.scandir(path):
         children = [] if entry.is_dir() else ()
         items.append( Node(entry.name,  entry.is_dir(),  parent=parent,  children=children) )
-    items.sort(key=lambda d: (not d.is_dir, d.name.lower()) )
+
+    # sort, name or extension
+    if SORT_TYPE == 'ext':
+        sort_key = lambda d: (not d.is_dir, d.ext, d.name.lower())
+    else: # name -- default
+        sort_key = lambda d: (not d.is_dir, d.name.lower())
+
+    items.sort(key=sort_key, reverse=SORT_REVERSE)
     return items
 
 def get_data_item(path_names, data):
@@ -210,10 +227,11 @@ def get_data_item(path_names, data):
 
 
 class Node:
-    __slots__ = ['name', 'is_dir', 'parent', 'children', 'id']
+    __slots__ = ['name', 'ext', 'is_dir', 'parent', 'children', 'id']
 
     def __init__(self, name, is_dir, parent, children=(), id_=None):
         self.name = name
+        self.ext = os.path.splitext(name)[1].lower()  if not is_dir else  ''
         self.is_dir = is_dir
         self.parent = parent
         self.children = children

@@ -18,6 +18,7 @@ OPT_SEC      = 'breadcrumbs'
 
 opt_root_dir_source = [0]
 opt_show_root_parents = True
+opt_file_sort_type = 'name'
 
 PROJECT_DIR = None
 
@@ -115,6 +116,7 @@ class Command:
         global PROJECT_DIR
         global opt_root_dir_source
         global opt_show_root_parents
+        global opt_file_sort_type
 
         PROJECT_DIR = get_project_dir()
 
@@ -126,12 +128,14 @@ class Command:
                     + 'comma-separated string of integers 0-2')
 
         opt_show_root_parents = str_to_bool(ini_read(fn_config, OPT_SEC, 'show_root_parents', '1'))
+        opt_file_sort_type = ini_read(fn_config, OPT_SEC, 'file_sort_type', opt_file_sort_type)
 
 
     def config(self):
         _root_dir_source_str = ','.join(map(str, opt_root_dir_source))
         ini_write(fn_config, OPT_SEC, 'root_dir_source',   _root_dir_source_str)
         ini_write(fn_config, OPT_SEC, 'show_root_parents', bool_to_str(opt_show_root_parents) )
+        ini_write(fn_config, OPT_SEC, 'file_sort_type', opt_file_sort_type)
         file_open(fn_config)
 
     #def on_caret(self, ed_self):
@@ -174,8 +178,6 @@ class Command:
                 PROJECT_DIR = new_project_dir
                 for bread in self._ed_uis.values():
                     bread.update()
-
-
 
         #elif state == APPSTATE_CODETREE_AFTER_FILL:
             #self._update(ed)
@@ -226,7 +228,7 @@ class Bread:
 
             from .dlg import TreeDlg
 
-            self._tree = TreeDlg()
+            self._tree = TreeDlg(opts={'sort_type':opt_file_sort_type})
         return self._tree
 
     def _add_ui(self):
@@ -237,6 +239,11 @@ class Bread:
             'color': Colors.bg,
             #'align': ALIGN_TOP,
         })
+        try:
+            statusbar_proc(self.h_sb, STATUSBAR_SET_PADDING, value=2) # api=399
+        except NameError:
+            pass
+
 
 
     def reset(self):

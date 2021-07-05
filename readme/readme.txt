@@ -15,6 +15,9 @@ Options description:
     * 0 - parent directory of '.cuda-proj'
     * 1 - first directory in project
     * 2 - project main-file's directory
+* "file_sort_type" - how files in the tree-dialog are sorted:
+	* "name" - sort by filename (default)
+	* "ext" - sort by extension
     
 
 Author: halfbrained (https://github.com/halfbrained)
