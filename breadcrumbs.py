@@ -232,6 +232,10 @@ class Bread:
         self.ed = Editor(ed_self.get_prop(PROP_HANDLE_SELF))  if ed_self is ed else  ed_self
         self.fn = ed.get_filename()
 
+        self.hparent = None
+        self.n_sb = None
+        self.h_sb = None
+
         self._tree = None
         self._root = None
         self._path_items = []
@@ -269,10 +273,9 @@ class Bread:
             pass
 
 
-
     def reset(self):
-        self._path_items.clear()
-        self._code_items.clear()
+        self._path_items = []
+        self._code_items = []
         statusbar_proc(self.h_sb, STATUSBAR_DELETE_ALL)
 
     def update(self):
@@ -356,7 +359,7 @@ class Bread:
     def on_fn_change(self):
         self.fn = self.ed.get_filename()
 
-        if self.fn  and  not self._tree:
+        if self.fn  and  self.hparent is None:
             self._add_ui()
             self.reset()
             self.on_theme()
