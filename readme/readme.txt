@@ -1,5 +1,14 @@
 Plugin for CudaText.
-Adds widget below editor for quick filesystem navigation.
+Shows the toolbar widget (modern name is breadcrumb bar) below the editor for quick
+file-system navigation. For example, when you have active editor with filename
+"~/mydir/myfile.ext" ("~" is Unix shortcut for "/home/user"), the widget shows buttons:
+[ home > user > mydir > myfile.ext ]
+It can also show the "~" button (by option):
+[ ~ > mydir > myfile.ext ]
+
+Clicking on each button shows the popup with file-system listing, showing the
+folder containing  the clicked item. This popup supports basic tree-view navigation,
+you can click files there to open them in CudaText.
 
 
 Configuration
