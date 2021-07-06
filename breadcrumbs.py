@@ -22,12 +22,12 @@ opt_show_root_parents = True
 opt_tilde_home        = True
 opt_file_sort_type    = 'name'
 opt_show_hidden_files = False
+opt_max_name_len      = 25
+opt_code_navigation   = True
 
 PROJECT_DIR = None
 IS_UNIX     = app_proc(PROC_GET_OS_SUFFIX, '') not in ['', '__mac']
 USER_DIR    = os.path.expanduser('~')
-
-SHOW_CODE = False
 
 #CodeItem = namedtuple('CodeItem', 'name icon')
 
@@ -39,7 +39,7 @@ def bool_to_str(v): return '1' if v else '0'
 def str_to_bool(s): return s=='1'
 
 def get_carets_tree_path():
-    if not SHOW_CODE:
+    if not opt_code_navigation:
         return ()
 
     def get_caret_node(carets, parent=0): #SKIP
@@ -118,7 +118,16 @@ class Command:
         self._ed_uis = {} # h_ed -> Bread
         self.is_loading_sesh = False
 
+        self._last_oncaret_time = 0
+
         Colors.update()
+
+        # subscribe to events
+        _events = 'on_open,on_save,on_state,on_focus'
+        if opt_code_navigation:
+            _events += ',on_caret'
+        _ev_str = 'cuda_breadcrumbs;{};;'.format(_events)
+        app_proc(PROC_SET_EVENTS, _ev_str)
 
     def _load_config(self):
         global PROJECT_DIR
@@ -127,6 +136,7 @@ class Command:
         global opt_file_sort_type
         global opt_tilde_home
         global opt_show_hidden_files
+        global opt_max_name_len
 
         PROJECT_DIR = get_project_dir()
 
@@ -141,6 +151,7 @@ class Command:
         opt_file_sort_type = ini_read(fn_config, OPT_SEC, 'file_sort_type', opt_file_sort_type)
         opt_tilde_home = str_to_bool(ini_read(fn_config, OPT_SEC, 'tilde_home', '1'))
         opt_show_hidden_files = str_to_bool(ini_read(fn_config, OPT_SEC, 'show_hidden_files', '0'))
+        opt_max_name_len = int(ini_read(fn_config, OPT_SEC, 'max_name_len', str(opt_max_name_len)))
 
 
     def config(self):
@@ -150,10 +161,13 @@ class Command:
         ini_write(fn_config, OPT_SEC, 'file_sort_type', opt_file_sort_type)
         ini_write(fn_config, OPT_SEC, 'tilde_home', bool_to_str(opt_tilde_home) )
         ini_write(fn_config, OPT_SEC, 'show_hidden_files', bool_to_str(opt_show_hidden_files) )
+        ini_write(fn_config, OPT_SEC, 'max_name_len', str(opt_max_name_len) )
         file_open(fn_config)
 
-    #def on_caret(self, ed_self):
-        #self._update(ed_self)
+    def on_caret(self, ed_self):
+        _callback = "module={};cmd={};".format('cuda_breadcrumbs', '_update_callblack')
+        timer_proc(TIMER_START_ONE, _callback, 250, tag=str(ed_self.h))
+
 
     def on_open(self, ed_self):
         if not self.is_loading_sesh:
@@ -208,6 +222,12 @@ class Command:
         bread.on_click(cell_ind)
 
 
+    def _update_callblack(self, tag='', info=''):
+        h_ed = int(tag)
+        if h_ed == ed.get_prop(PROP_HANDLE_SELF):
+            self._update(ed)
+
+
     def _update(self, ed_self):
         bc = self._get_bread(ed_self)
         bc.update()
@@ -231,6 +251,7 @@ class Bread:
     def __init__(self, ed_self):
         self.ed = Editor(ed_self.get_prop(PROP_HANDLE_SELF))  if ed_self is ed else  ed_self
         self.fn = ed.get_filename()
+
 
         self.hparent = None
         self.n_sb = None
@@ -283,7 +304,13 @@ class Bread:
             return
 
         path_items, root_changed = self._get_path_items()
+
+        from time import time as t
+        _t0 = t()
         code_items = get_carets_tree_path()
+        _t1 = t()
+        print(f'(got tree path: {(_t1-_t0)*1000:.3f}ms )')
+
 
         # no changes
         if not root_changed  and  self._path_items == path_items  and  self._code_items == code_items:
@@ -301,16 +328,23 @@ class Bread:
         # update changed  PATH  cells
         for i,(old,new) in enumerate(zip_longest(self._path_items, path_items)):
             if old != new  and  new is not None:
+                if len(new) > opt_max_name_len:
+                    new = ellipsize(new)
                 statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_TEXT, index=i, value=new)
-                _h_ed = self.ed.get_prop(PROP_HANDLE_SELF)
                 _callback = "module={};cmd={};info={}:{};".format(
-                                        'cuda_breadcrumbs', 'on_cell_click', i, _h_ed)
+                                        'cuda_breadcrumbs', 'on_cell_click', i, self.ed.h)
                 statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_CALLBACK, index=i, value=_callback)
         # update changed  CODE  cells
         offset = len(path_items)
         for i,(old,new) in enumerate(zip_longest(self._code_items, code_items)):
             if old != new  and  new is not None:
-                statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_TEXT, index=i+offset, value=str(new))
+                new = str(new)
+                if len(new) > opt_max_name_len:
+                    new = ellipsize(new)
+                statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_TEXT, index=i+offset, value=new)
+                _callback = "module={};cmd={};info={}:{};".format(
+                                        'cuda_breadcrumbs', 'on_cell_click', i+offset, self.ed.h)
+                statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_CALLBACK, index=i+offset, value=_callback)
                 '!!!'
                 # update icons from tree data
                 #statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_TEXT, index=i, value=new)
@@ -320,8 +354,8 @@ class Bread:
 
 
     def on_click(self, cell_ind):
-        if len(self._path_items) == 1: # no file
-            return
+        #if len(self._path_items) == 1: # no file
+            #return
 
         # if path-item click
         if cell_ind < len(self._path_items):
@@ -340,8 +374,11 @@ class Bread:
             self.tree.show_dir(fn=path.as_posix(), root=_parent, btn_rect=btn_rect)
 
         else:   # if code-item click
-            code_ind = cell_ind - len(self._path_items)
-            print(f'code clicked: {Path(*self._path_items)} -- {self._code_items[:code_ind+1]}')
+            _code_ind = cell_ind - len(self._path_items)
+            _code_path_items = self._code_items[:_code_ind+1]
+            print(f'code clicked: {Path(*self._path_items)} -- {_code_path_items}')
+            _btn_rect = self._get_cell_rect(cell_ind)
+            self.tree.show_code(_code_path_items, _btn_rect)
 
 
     def on_theme(self):
@@ -463,3 +500,8 @@ class Colors:
 def set_cell_colors(h_sb, ind, bg, fg):
     statusbar_proc(h_sb, STATUSBAR_SET_CELL_COLOR_BACK, index=ind, value=bg)
     statusbar_proc(h_sb, STATUSBAR_SET_CELL_COLOR_FONT, index=ind, value=fg)
+
+def ellipsize(s):
+    _start = opt_max_name_len//2
+    _end = opt_max_name_len - _start
+    return s[:_start] + '...' + s[-_end:]

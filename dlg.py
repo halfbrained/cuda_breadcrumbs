@@ -102,18 +102,38 @@ class TreeDlg:
             tree_proc(self.h_tree, TREE_ITEM_SELECT, id_item=sel_item.id)
 
         # set dlg position
-        x,y, w,h = btn_rect
+        dlg_x, dlg_y = _get_dlg_pos(btn_rect)
         dlg_proc(self.h, DLG_PROP_SET, prop={
-            'x': x+w,
-            'y': y+h-DLG_H,
+            'x': dlg_x,
+            'y': dlg_y,
         })
 
         dlg_proc(self.h, DLG_SHOW_MODAL)
 
 
-    def show_data(self, data, selected, btn_rect):
-        #self._mode = self.MODE_CODE
-        pass
+    def show_code(self, path_items, btn_rect):
+        self._mode = self.MODE_CODE
+
+        if self.h is None:
+            self.h = self.init_form()
+
+        # fill tree from active Editor
+        ed.action(EDACTION_CODETREE_FILL, self.h_tree)
+
+        # select `fn` tree item
+        target_id = self._get_tree_id(path_items)
+        if target_id is not None:
+            tree_proc(self.h_tree, TREE_ITEM_SELECT, id_item=target_id)
+
+        # set dlg position
+        dlg_x, dlg_y = _get_dlg_pos(btn_rect)
+        dlg_proc(self.h, DLG_PROP_SET, prop={
+            'x': dlg_x,
+            'y': dlg_y,
+        })
+
+        dlg_proc(self.h, DLG_SHOW_MODAL)
+
 
     def hide(self):
         dlg_proc(self.h, DLG_HIDE)
@@ -141,27 +161,33 @@ class TreeDlg:
         """ opens tree item (file, directory)
             returns True if ok to close
         """
-        if self._mode != self.MODE_FILE:
-            return
 
         if id_item is None:
             id_item = tree_proc(self.h_tree, TREE_ITEM_GET_SELECTED)
             if id_item is None:
                 return
 
-        sel_item = self.id_map[id_item]
-        if not sel_item.is_dir:     # open file
-            path = sel_item.full_path
-            if path != ed.get_filename():
-                file_open(path)
-                return True
 
-        else:   # load directory
-            if not sel_item.children: # not checked yet
-                sel_item.children = load_dir(sel_item.full_path, parent=sel_item)
-                self._fill_tree(sel_item.children,  parent=sel_item.id)
-                if sel_item.children:
-                    tree_proc(self.h_tree, TREE_ITEM_UNFOLD, id_item=sel_item.id)
+        if self._mode == self.MODE_FILE:
+            sel_item = self.id_map[id_item]
+            if not sel_item.is_dir:     # open file
+                path = sel_item.full_path
+                if path != ed.get_filename():
+                    file_open(path)
+                    return True
+            else:           # load directory
+                if not sel_item.children: # not checked yet
+                    sel_item.children = load_dir(sel_item.full_path, parent=sel_item)
+                    self._fill_tree(sel_item.children,  parent=sel_item.id)
+                    if sel_item.children:
+                        tree_proc(self.h_tree, TREE_ITEM_UNFOLD, id_item=sel_item.id)
+
+        elif self._mode == self.MODE_CODE:
+            x0,y0, x1,y1 = tree_proc(self.h_tree, TREE_ITEM_GET_RANGE, id_item=id_item)
+            if x0 != -1  and  y0 != -1:     # move caret to target range
+                _top = max(0, y0-3)
+                ed.set_prop(PROP_LINE_TOP, _top)
+                ed.set_caret(x0,y0, options=CARET_OPTION_UNFOLD)
 
 
     def _fill_tree(self, children, parent=0):
@@ -189,12 +215,26 @@ class TreeDlg:
                 self._fill_tree(ch.children, parent=id_)
 
 
+    def _get_tree_id(self, path_items):
+        id_item = 0
+        for name in path_items:
+            items = tree_proc(self.h_tree, TREE_ITEM_ENUM, id_item=id_item) # list[id,name] or None
+            if not items:
+                return None
+            id_item = next((id_ for id_,item_name in items  if item_name == name), None)
+            if id_item is None:
+                return None
+        return id_item
+
+
+
+
 def load_filepath_tree(fn, root):
     """ loads Node-tree from filesystem - from `root` to `fn`s directory
     """
     rel_path = fn.relative_to(root)
 
-    data = Node(root.as_posix(), is_dir=True, is_hidden=False, parent=None, children=[])
+    data = FileNode(root.as_posix(), is_dir=True, is_hidden=False, parent=None, children=[])
     path = root
     item = data
     path_parts = list(rel_path.parts)
@@ -212,8 +252,8 @@ def load_filepath_tree(fn, root):
     return data
 
 def load_dir(path, parent=None):
-    """ loads `Node`s from a single directory: `path`
-        parent - parent `Node` for loaded children
+    """ loads `FileNode`s from a single directory: `path`
+        parent - parent `FileNode` for loaded children
     """
     items = []
     try:
@@ -223,7 +263,8 @@ def load_dir(path, parent=None):
                 is_hidden = bool(entry.stat().st_file_attributes & FILE_ATTRIBUTE_HIDDEN)
             else:
                 is_hidden = entry.name.startswith('.')
-            items.append( Node(entry.name,  entry.is_dir(), is_hidden,  parent=parent,  children=children) )
+            node = FileNode(entry.name,  entry.is_dir(), is_hidden,  parent=parent,  children=children)
+            items.append( node )
     except PermissionError:
         print('PermissionError: can\'t open: {}'.format(path))
     except os.error:
@@ -238,6 +279,15 @@ def load_dir(path, parent=None):
     items.sort(key=sort_key, reverse=SORT_REVERSE)
     return items
 
+
+#def load_code_tree(path_items):
+    #""" loads Node-tree from Code-Tree
+    #"""
+    #data = FileNode('root', is_dir=True, parent=None, children=[])
+
+
+
+
 def get_data_item(path_names, data):
     """ gets a single `Node` from `Node` tree by path: `path_names` (example: ['/', 'etc', 'cfg.cfg'])
     """
@@ -248,27 +298,54 @@ def get_data_item(path_names, data):
     return data
 
 
-class Node:
-    __slots__ = ['name', 'ext', 'is_dir', 'is_hidden', 'parent', 'children', 'id']
+def _get_dlg_pos(btn_rect):
+    x,y, w,h = btn_rect
+    dlg_y = y-DLG_H
+    dlg_x = x
+    if dlg_y < 0: # if dialog doesnt fit on top - show it to the right of clicked button
+        dlg_y = 0
+        dlg_x = x+w
 
-    def __init__(self, name, is_dir, is_hidden, parent, children=(), id_=None):
+    _screen_rect = app_proc(PROC_COORD_MONITOR, '')
+    if dlg_x+DLG_W > _screen_rect[2]: # if doesnt fit on right - clamp to screen
+        dlg_x = _screen_rect[2]-DLG_W
+    return dlg_x, dlg_y
+
+
+class Node:
+    __slots__ = ['name', 'is_dir', 'parent', 'children', 'id']
+
+    #def __init__(self, name, is_dir, is_hidden, parent, children=(), id_=None):
+    def __init__(self, name, is_dir, parent, children=(), id_=None):
         self.name = name
-        self.ext = os.path.splitext(name)[1].lower()  if not is_dir else  ''
         self.is_dir = is_dir
-        self.is_hidden = is_hidden
         self.parent = parent
         self.children = children
         self.id = id_
 
     @property
-    def full_path(self):
+    def path_items(self):
         names = []
         item = self
         while item:
             names.append(item.name)
             item = item.parent
 
-        return os.path.join(*reversed(names))
+        names.reverse()
+        return names
+
+
+class FileNode(Node):
+    __slots__ = ['ext', 'is_hidden', ]
+
+    def __init__(self, name, is_dir, is_hidden, parent, children=(), id_=None):
+        super(self, FileNode).__init__(name, is_dir, parent, children, id_)
+        self.ext = os.path.splitext(name)[1].lower()  if not is_dir else  ''
+        self.is_hidden = is_hidden
+
+    @property
+    def full_path(self):
+        return os.path.join(self.path_items)
 
     def __str__(self):
         return f'{self.name} [{"d" if self.is_dir else "f"}:{self.id}] children={len(self.children)}'
