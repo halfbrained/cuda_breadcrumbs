@@ -17,6 +17,7 @@ dir_settings = app_path(APP_DIR_SETTINGS)
 fn_config    = os.path.join(dir_settings, 'plugins.ini')
 OPT_SEC      = 'breadcrumbs'
 
+opt_position_bottom   = True
 opt_root_dir_source   = [0]
 opt_show_root_parents = True
 opt_tilde_home        = True
@@ -124,6 +125,7 @@ class Command:
 
     def _load_config(self):
         global PROJECT_DIR
+        global opt_position_bottom
         global opt_root_dir_source
         global opt_show_root_parents
         global opt_file_sort_type
@@ -141,6 +143,7 @@ class Command:
             print('NOTE: Breadcrumbs - Unable to parse option value: "root_dir_source" should be '
                     + 'comma-separated string of integers 0-2')
 
+        opt_position_bottom = str_to_bool(ini_read(fn_config, OPT_SEC, 'position_bottom', '1'))
         opt_show_root_parents = str_to_bool(ini_read(fn_config, OPT_SEC, 'show_root_parents', '1'))
         opt_file_sort_type = ini_read(fn_config, OPT_SEC, 'file_sort_type', opt_file_sort_type)
         opt_tilde_home = str_to_bool(ini_read(fn_config, OPT_SEC, 'tilde_home', '1'))
@@ -151,6 +154,7 @@ class Command:
 
     def config(self):
         _root_dir_source_str = ','.join(map(str, opt_root_dir_source))
+        ini_write(fn_config, OPT_SEC, 'position_bottom',    bool_to_str(opt_position_bottom) )
         ini_write(fn_config, OPT_SEC, 'root_dir_source',    _root_dir_source_str)
         ini_write(fn_config, OPT_SEC, 'show_root_parents',  bool_to_str(opt_show_root_parents) )
         ini_write(fn_config, OPT_SEC, 'file_sort_type',     opt_file_sort_type)
@@ -263,6 +267,7 @@ class Bread:
             self._tree = TreeDlg(opts={
                 'sort_type':         opt_file_sort_type,
                 'show_hidden_files': opt_show_hidden_files,
+                'position_bottom':   opt_position_bottom,
             })
         return self._tree
 
@@ -270,9 +275,11 @@ class Bread:
         self.hparent = self.ed.get_prop(PROP_HANDLE_PARENT)
         self.n_sb    = dlg_proc(self.hparent, DLG_CTL_ADD, 'statusbar')
         self.h_sb    = dlg_proc(self.hparent, DLG_CTL_HANDLE, index=self.n_sb)
+
+        _align = ALIGN_BOTTOM  if opt_position_bottom else  ALIGN_TOP
         dlg_proc(self.hparent, DLG_CTL_PROP_SET, index=self.n_sb, prop={
             'color': Colors.bg,
-            #'align': ALIGN_TOP,
+            'align': _align,
         })
         try:
             statusbar_proc(self.h_sb, STATUSBAR_SET_PADDING, value=4) # api=399
@@ -375,7 +382,13 @@ class Bread:
             set_cell_colors(self.h_sb, i, bg=Colors.path_bg, fg=Colors.path_fg)
 
         statusbar_proc(self.h_sb, STATUSBAR_SET_COLOR_BORDER_R, value=Colors.border)
-        statusbar_proc(self.h_sb, STATUSBAR_SET_COLOR_BORDER_TOP, value=Colors.border)
+        if opt_position_bottom:
+            statusbar_proc(self.h_sb, STATUSBAR_SET_COLOR_BORDER_TOP, value=Colors.border)
+        else:
+            try: # new api
+                statusbar_proc(self.h_sb, STATUSBAR_SET_COLOR_BORDER_BOTTOM, value=Colors.border)
+            except NameError:
+                pass
 
     def on_fn_change(self):
         self.fn = self.ed.get_filename()

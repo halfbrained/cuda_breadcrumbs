@@ -1,5 +1,5 @@
 Plugin for CudaText.
-Shows the toolbar widget (modern name is breadcrumb bar) below the editor for quick
+Shows the toolbar widget (modern name is breadcrumb bar) below or on top of the editor for quick
 file-system navigation. For example, when you have active editor with filename
 "~/mydir/myfile.ext" ("~" is Unix shortcut for "/home/user"), the widget shows buttons:
 [ home > user > mydir > myfile.ext ]
@@ -19,6 +19,7 @@ Plugin can be configured via menu:
 
 Section [breadcrumbs].
 Options description:
+* "position_bottom" - whether to show breadcrumbs below the document, or on top
 * "show_root_parents" - show full path, otherwise - only project-directory files are shown
 * "root_dir_source" - project-directory source (accepts comma-separated list of values for fallback):
     * 0 - parent directory of '.cuda-proj'

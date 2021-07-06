@@ -24,6 +24,7 @@ DLG_H = 400
 SORT_TYPE = 'name'
 SORT_REVERSE = False
 SHOW_HIDDEN_FILES = False
+POSITION_BOTTOM = True
 
 
 class TreeDlg:
@@ -34,6 +35,7 @@ class TreeDlg:
     def __init__(self, opts=None):
         global SORT_TYPE
         global SHOW_HIDDEN_FILES
+        global POSITION_BOTTOM
 
         self.h = None
         self.data = None
@@ -44,6 +46,7 @@ class TreeDlg:
         if opts:
             SORT_TYPE         = opts.get('sort_type',         SORT_TYPE)
             SHOW_HIDDEN_FILES = opts.get('show_hidden_files', SHOW_HIDDEN_FILES)
+            POSITION_BOTTOM   = opts.get('position_bottom',   POSITION_BOTTOM)
 
 
     def init_form(self):
@@ -102,17 +105,7 @@ class TreeDlg:
             tree_proc(self.h_tree, TREE_ITEM_SELECT, id_item=sel_item.id)
 
         # set dlg position
-        x,y, w,h = btn_rect
-        dlg_y = y-DLG_H
-        dlg_x = x
-        if dlg_y < 0: # if dialog doesnt fit on top - show it to the right of clicked button
-            dlg_y = 0
-            dlg_x = x+w
-
-        _screen_rect = app_proc(PROC_COORD_MONITOR, '')
-        if dlg_x+DLG_W > _screen_rect[2]: # if doesnt fit on right - clamp to screen
-            dlg_x = _screen_rect[2]-DLG_W
-
+        dlg_x, dlg_y = _get_dlg_pos(btn_rect)
         dlg_proc(self.h, DLG_PROP_SET, prop={
             'x': dlg_x,
             'y': dlg_y,
@@ -256,6 +249,27 @@ def get_data_item(path_names, data):
         if data is None:
             return None
     return data
+
+
+def _get_dlg_pos(btn_rect):
+    x,y, w,h = btn_rect
+    dlg_x = x
+    _screen_rect = app_proc(PROC_COORD_MONITOR, '')
+    if POSITION_BOTTOM:
+        dlg_y = y-DLG_H
+        if dlg_y < 0: # if dialog doesnt fit on top - show it to the right of clicked button
+            dlg_y = 0
+            dlg_x = x+w
+    else: # position top
+        dlg_y = y+h
+        if dlg_y+DLG_H > _screen_rect[3]: # if dialog doesnt fit on bottom - show it to side of btn
+            dlg_y = _screen_rect[3] - DLG_H
+            dlg_x = x+w
+
+    if dlg_x+DLG_W > _screen_rect[2]: # if doesnt fit on right - clamp to screen
+        dlg_x = _screen_rect[2]-DLG_W
+
+    return dlg_x, dlg_y
 
 
 class Node:
