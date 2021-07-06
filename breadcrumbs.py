@@ -320,6 +320,8 @@ class Bread:
                 _callback = "module={};cmd={};info={}:{};".format(
                                         'cuda_breadcrumbs', 'on_cell_click', i, _h_ed)
                 statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_CALLBACK, index=i, value=_callback)
+                if i == 0  and  self._root:
+                    statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_HINT, index=i, value=self._root)
         # update changed  CODE  cells
         offset = len(path_items)
         for i,(old,new) in enumerate(zip_longest(self._code_items, code_items)):
