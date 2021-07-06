@@ -463,8 +463,6 @@ class Bread:
                 _n_endcut = opt_max_dirs_count + 1 #+1 is file-name
                 cut, path_items = _items[:-_n_endcut], path_items[-_n_endcut:]
                 self._root = Path(*cut).as_posix()
-                print(f'NOTE: fixed root: {self._root}')
-
 
         return path_items
 
