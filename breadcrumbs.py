@@ -320,7 +320,9 @@ class Bread:
         # update changed  PATH  cells
         for i,(old,new) in enumerate(zip_longest(self._path_items, path_items)):
             if old != new  and  new is not None:
+                hint = None
                 if len(new) > opt_max_name_len:
+                    hint = new
                     new = ellipsize(new)
                 statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_TEXT, index=i, value=new)
                 _h_ed = self.ed.get_prop(PROP_HANDLE_SELF)
@@ -329,14 +331,21 @@ class Bread:
                 statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_CALLBACK, index=i, value=_callback)
                 if i == 0  and  self._root:
                     statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_HINT, index=i, value=self._root)
+                elif hint is not None:
+                    statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_HINT, index=i, value=hint)
+
         # update changed  CODE  cells
         offset = len(path_items)
         for i,(old,new) in enumerate(zip_longest(self._code_items, code_items)):
             if old != new  and  new is not None:
                 new = str(new)
+                hint = None
                 if len(new) > opt_max_name_len:
+                    hint = new
                     new = ellipsize(new)
                 statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_TEXT, index=i+offset, value=new)
+                if hint is not None:
+                    statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_HINT, index=i, value=hint)
                 '!!!'
                 # update icons from tree data
                 #statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_TEXT, index=i, value=new)
