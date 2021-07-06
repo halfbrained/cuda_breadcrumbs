@@ -22,7 +22,8 @@ opt_show_root_parents = True
 opt_tilde_home        = True
 opt_file_sort_type    = 'name'
 opt_show_hidden_files = False
-opt_max_name_len   = 25
+opt_max_name_len      = 25
+opt_max_dirs_count    = 0
 
 PROJECT_DIR = None
 IS_UNIX     = app_proc(PROC_GET_OS_SUFFIX, '') not in ['', '__mac']
@@ -129,6 +130,7 @@ class Command:
         global opt_tilde_home
         global opt_show_hidden_files
         global opt_max_name_len
+        global opt_max_dirs_count
 
         PROJECT_DIR = get_project_dir()
 
@@ -144,16 +146,18 @@ class Command:
         opt_tilde_home = str_to_bool(ini_read(fn_config, OPT_SEC, 'tilde_home', '1'))
         opt_show_hidden_files = str_to_bool(ini_read(fn_config, OPT_SEC, 'show_hidden_files', '0'))
         opt_max_name_len = int(ini_read(fn_config, OPT_SEC, 'max_name_len', str(opt_max_name_len)))
+        opt_max_dirs_count = int(ini_read(fn_config, OPT_SEC, 'max_dirs_count', str(opt_max_dirs_count)))
 
 
     def config(self):
         _root_dir_source_str = ','.join(map(str, opt_root_dir_source))
-        ini_write(fn_config, OPT_SEC, 'root_dir_source',   _root_dir_source_str)
-        ini_write(fn_config, OPT_SEC, 'show_root_parents', bool_to_str(opt_show_root_parents) )
-        ini_write(fn_config, OPT_SEC, 'file_sort_type', opt_file_sort_type)
-        ini_write(fn_config, OPT_SEC, 'tilde_home', bool_to_str(opt_tilde_home) )
-        ini_write(fn_config, OPT_SEC, 'show_hidden_files', bool_to_str(opt_show_hidden_files) )
-        ini_write(fn_config, OPT_SEC, 'max_name_len', str(opt_max_name_len) )
+        ini_write(fn_config, OPT_SEC, 'root_dir_source',    _root_dir_source_str)
+        ini_write(fn_config, OPT_SEC, 'show_root_parents',  bool_to_str(opt_show_root_parents) )
+        ini_write(fn_config, OPT_SEC, 'file_sort_type',     opt_file_sort_type)
+        ini_write(fn_config, OPT_SEC, 'tilde_home',         bool_to_str(opt_tilde_home) )
+        ini_write(fn_config, OPT_SEC, 'show_hidden_files',  bool_to_str(opt_show_hidden_files) )
+        ini_write(fn_config, OPT_SEC, 'max_name_len',       str(opt_max_name_len) )
+        ini_write(fn_config, OPT_SEC, 'max_dirs_count',     str(opt_max_dirs_count) )
         file_open(fn_config)
 
     #def on_caret(self, ed_self):
@@ -286,8 +290,12 @@ class Bread:
         if not self.fn:
             return
 
-        path_items, root_changed = self._get_path_items()
+        _old_root = self._root
+
+        path_items = self._get_path_items()
         code_items = get_carets_tree_path()
+
+        root_changed = self._root != _old_root
 
         # no changes
         if not root_changed  and  self._path_items == path_items  and  self._code_items == code_items:
@@ -423,10 +431,8 @@ class Bread:
         )
 
     def _get_path_items(self):
-        root_changed = False
         ### if need to hide project parents
         if not opt_show_root_parents  and  PROJECT_DIR  and  self.fn.startswith(PROJECT_DIR):
-            root_changed = self._root !=  PROJECT_DIR
             self._root = PROJECT_DIR
             _root = Path(self._root)
             path_items = Path(self.fn).relative_to(_root.parent).parts
@@ -447,7 +453,20 @@ class Bread:
             self._root = None
             path_items = Path(self.fn).parts
 
-        return path_items, root_changed
+        # limit path-cells count (OPT: `opt_max_dirs_count`)
+        if opt_max_dirs_count > 0:
+            n_items = len(path_items)
+            if (n_items > opt_max_dirs_count + 1
+                    # if extra is just a single `~` - allow
+                    and  not (n_items == opt_max_dirs_count+2  and  path_items[0] == '~') ):
+                _items = Path(self.fn).parts
+                _n_endcut = opt_max_dirs_count + 1 #+1 is file-name
+                cut, path_items = _items[:-_n_endcut], path_items[-_n_endcut:]
+                self._root = Path(*cut).as_posix()
+                print(f'NOTE: fixed root: {self._root}')
+
+
+        return path_items
 
 
 
