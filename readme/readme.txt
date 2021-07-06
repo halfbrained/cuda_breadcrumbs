@@ -30,6 +30,7 @@ Options description:
 * "tilde_home" - (unix only) replace home directory path by a single item: `~`
 * "show_hidden_files" - whether to show hidden files in tree-dialog (hidden by default)
 * "max_name_len" - max file/directory name length on breadcrumbs bar
+* "max_dirs_count" - limit number of directories displayed on breadcrumbs bar
     
 
 Author: halfbrained (https://github.com/halfbrained)
