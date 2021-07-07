@@ -174,7 +174,7 @@ class Command:
         self._opened_h_eds.add(ed_self.get_prop(PROP_HANDLE_SECONDARY))
 
         if not self.is_loading_sesh:
-            breads = self._get_breads(ed_self)
+            breads = self._get_breads(ed_self, check_files=True)
             for b in breads:
                 b.on_fn_change()
 
@@ -241,7 +241,7 @@ class Command:
         for b in breads:
             b.update()
 
-    def _get_breads(self, ed_self):
+    def _get_breads(self, ed_self, check_files=False):
         """ returns tuple of Breads in tab; usually one,  two on split tab with two files
         """
         h_ed = ed_self.get_prop(PROP_HANDLE_SELF)
@@ -268,7 +268,7 @@ class Command:
         # process secondary editor
         if h_ed2 is not None:
             bc2 = self._ed_uis.get(h_ed2)
-            if bc2 is None:
+            if bc2 is None  or  (check_files  and  bc2 is bc0):
                 ed2 = Editor(h_ed2)
                 fn0,fn2 = ed_self.get_filename(),  ed2.get_filename()
                 # if two editors are the same file - need only one bread,  two files - two breads
