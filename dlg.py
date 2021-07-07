@@ -72,6 +72,7 @@ class TreeDlg:
         dlg_proc(h, DLG_CTL_PROP_SET, index=n, prop={
                 'name': 'tree',
                 'align': ALIGN_CLIENT,
+                'sp_a': 1,
                 'on_change': self.tree_on_click,
                 #'on_click_dbl': self.tree_on_click_dbl,
                 })
