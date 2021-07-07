@@ -501,10 +501,10 @@ class Bread:
 
         r = statusbar_proc(self.h_sb, STATUSBAR_GET_CELL_RECT, index=ind)
         return (
-            sb_screen_coords[0]+r[0], # x
-            sb_screen_coords[1],      # y
-            r[2]-r[0],  # w
-            h,          # h
+            sb_screen_coords[0]+max(0, r[0]), # x
+            sb_screen_coords[1],              # y
+            r[2]-max(0, r[0]),  # w
+            h,                  # h
         )
 
 
