@@ -335,12 +335,9 @@ class Bread:
             'color': Colors.bg,
             'align': _align,
         })
-        try:
-            statusbar_proc(self.h_sb, STATUSBAR_SET_PADDING, value=4) # api=399
-            statusbar_proc(self.h_sb, STATUSBAR_SET_SEPARATOR, value='>')
-            statusbar_proc(self.h_sb, STATUSBAR_SET_OVERFLOW_LEFT, value=True)
-        except NameError:
-            pass
+        statusbar_proc(self.h_sb, STATUSBAR_SET_PADDING, value=4) # api=399
+        statusbar_proc(self.h_sb, STATUSBAR_SET_SEPARATOR, value='>')
+        statusbar_proc(self.h_sb, STATUSBAR_SET_OVERFLOW_LEFT, value=True)
 
 
     def reset(self):
@@ -376,7 +373,7 @@ class Bread:
         for i,(old,new) in enumerate(zip_longest(self._path_items, path_items)):
             if old != new  and  new is not None:
                 hint = None
-                if len(new) > opt_max_name_len:
+                if len(new) > opt_max_name_len+1:
                     hint = new
                     new = ellipsize(new)
                 statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_TEXT, index=i, value=new)
@@ -395,7 +392,7 @@ class Bread:
             if old != new  and  new is not None:
                 new = str(new)
                 hint = None
-                if len(new) > opt_max_name_len:
+                if len(new) > opt_max_name_len+1:
                     hint = new
                     new = ellipsize(new)
                 statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_TEXT, index=i+offset, value=new)
