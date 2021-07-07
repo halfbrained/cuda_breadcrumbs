@@ -219,6 +219,16 @@ def load_filepath_tree(fn, root):
         if item is None:
             print('NOTE: Breadcrumbs - can\'t find file: {}'.format(path))
             break
+
+    # make sure all main-path items are visible
+    if not SHOW_HIDDEN_FILES:
+        item = data
+        for name in rel_path.parts:
+            item = next((ch for ch in item.children  if ch.name == name), None)
+            if item is None:
+                break
+            item.is_hidden = False
+
     return data
 
 def load_dir(path, parent=None):
