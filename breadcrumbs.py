@@ -121,6 +121,8 @@ class Command:
         self._ed_uis = {} # h_ed -> Bread
         self.is_loading_sesh = False
 
+        self._opened_h_eds = set() # handles for editors that have been `on_open`-ed - to ignore on_focus
+
         Colors.update()
 
     def _load_config(self):
@@ -168,19 +170,24 @@ class Command:
         #self._update(ed_self)
 
     def on_open(self, ed_self):
+        self._opened_h_eds.add(ed_self.get_prop(PROP_HANDLE_PRIMARY))
+        self._opened_h_eds.add(ed_self.get_prop(PROP_HANDLE_SECONDARY))
+
         if not self.is_loading_sesh:
-            bc = self._get_bread(ed_self)
-            bc.on_fn_change()
+            breads = self._get_breads(ed_self)
+            for b in breads:
+                b.on_fn_change()
 
     def on_save(self, ed_self):
-        h_ed = ed_self.get_prop(PROP_HANDLE_SELF)
-
-        bc = self._ed_uis.get(h_ed)
-        if bc:
-            bc.on_fn_change()
+        breads = self._get_breads(ed_self)
+        for b in breads:
+            b.on_fn_change()
 
     def on_focus(self, ed_self):
-        if ed_self.get_prop(PROP_HANDLE_SELF) not in self._ed_uis:
+        if ed_self.h not in self._opened_h_eds:
+            return # ignore `on_focus` that happens before `on_open`
+
+        if ed_self.get_prop(PROP_HANDLE_SELF) not in self._ed_uis:  # need for lazy bread-injection
             self._update(ed_self)
 
 
@@ -213,6 +220,15 @@ class Command:
         #elif state == APPSTATE_CODETREE_AFTER_FILL:
             #self._update(ed)
 
+    def on_close(self, ed_self):
+        h_ed0 = ed_self.get_prop(PROP_HANDLE_PRIMARY)
+        h_ed1 = ed_self.get_prop(PROP_HANDLE_SECONDARY)
+        self._ed_uis.pop(h_ed0, None)
+        self._ed_uis.pop(h_ed1, None)
+        self._opened_h_eds.discard(h_ed0)
+        self._opened_h_eds.discard(h_ed1)
+
+
     def on_cell_click(self, id_dlg, id_ctl, data='', info=''):
         # info: "<cell_ind>:<h_ed>"
         cell_ind, h_ed = map(int, info.split(':'))
@@ -221,34 +237,72 @@ class Command:
 
 
     def _update(self, ed_self):
-        bc = self._get_bread(ed_self)
-        bc.update()
+        breads = self._get_breads(ed_self)
+        for b in breads:
+            b.update()
 
-    def _get_bread(self, ed_self):
+    def _get_breads(self, ed_self):
+        """ returns tuple of Breads in tab; usually one,  two on split tab with two files
+        """
         h_ed = ed_self.get_prop(PROP_HANDLE_SELF)
 
-        bc = self._ed_uis.get(h_ed)
-        if bc is None:
-            bc = Bread(ed_self)
-            self._ed_uis[h_ed] = bc
+        _h_ed0 = ed_self.get_prop(PROP_HANDLE_PRIMARY)
+        _h_ed1 = ed_self.get_prop(PROP_HANDLE_SECONDARY)
+        h_ed2 = _h_ed0  if h_ed == _h_ed1 else  _h_ed1
 
-        return bc
+        bc0 = self._ed_uis.get(h_ed)
+        if bc0 is None:
+            # check if Bread for sibling-Editor exists and is same file -- reuse
+            bc2 = self._ed_uis.get(h_ed2)
+            if bc2 is not None:
+                fn =  ed_self.get_filename()
+                if fn == Editor(h_ed2).get_filename()  and  fn is not None: # both Editors - same file
+                    bc0 = bc2
+                    self._ed_uis[h_ed] = bc2
+                    h_ed2 = None # dont add second bread if single file
+
+            if bc0 is None: # need new bread
+                bc0 = Bread(ed_self)
+                self._ed_uis[h_ed] = bc0
+
+        # process secondary editor
+        if h_ed2 is not None:
+            bc2 = self._ed_uis.get(h_ed2)
+            if bc2 is None:
+                ed2 = Editor(h_ed2)
+                fn0,fn2 = ed_self.get_filename(),  ed2.get_filename()
+                # if two editors are the same file - need only one bread,  two files - two breads
+                if fn0 == fn2  and  fn0 is not None:
+                    self._ed_uis[h_ed2] = bc0 # point both editors to the same Bread
+                    h_ed2 = None    # -- same file - dont add second ed to result
+                else:
+                    bc2 = Bread(ed2)
+                    self._ed_uis[h_ed2] = bc2
+
+        return (bc0,)  if h_ed2 is None else  (bc0,bc2)
 
     @property
     def current(self):
         return self._ed_uis.get(ed.get_prop(PROP_HANDLE_SELF))
 
+    def print_breads(self):
+        for h_ed,bread in self._ed_uis.items():
+            print(f'* bread: {h_ed:_}: {bread.ed}  -  {bread.ed.get_filename()}')
+
+
 
 class Bread:
+
+    _tree = None
+
     def __init__(self, ed_self):
         self.ed = Editor(ed_self.get_prop(PROP_HANDLE_SELF))  if ed_self is ed else  ed_self
-        self.fn = ed.get_filename()
+        self.fn = self.ed.get_filename()
 
         self.hparent = None
         self.n_sb = None
         self.h_sb = None
 
-        self._tree = None
         self._root = None
         self._path_items = []
         self._code_items = []
@@ -260,16 +314,16 @@ class Bread:
 
     @property
     def tree(self):
-        if self._tree is None:
+        if Bread._tree is None:
 
             from .dlg import TreeDlg
 
-            self._tree = TreeDlg(opts={
+            Bread._tree = TreeDlg(opts={
                 'sort_type':         opt_file_sort_type,
                 'show_hidden_files': opt_show_hidden_files,
                 'position_bottom':   opt_position_bottom,
             })
-        return self._tree
+        return Bread._tree
 
     def _add_ui(self):
         self.hparent = self.ed.get_prop(PROP_HANDLE_PARENT)
@@ -284,6 +338,7 @@ class Bread:
         try:
             statusbar_proc(self.h_sb, STATUSBAR_SET_PADDING, value=4) # api=399
             statusbar_proc(self.h_sb, STATUSBAR_SET_SEPARATOR, value='>')
+            statusbar_proc(self.h_sb, STATUSBAR_SET_OVERFLOW_LEFT, value=True)
         except NameError:
             pass
 
@@ -358,6 +413,8 @@ class Bread:
         if len(self._path_items) == 1: # no file
             return
 
+        self.ed.focus()    # focus editor of clicked breadcrumbs-cell, so `ed` is proper Editor
+
         # if path-item click
         if cell_ind < len(self._path_items):
             path = Path(*self._path_items[:cell_ind+1])
@@ -371,8 +428,8 @@ class Bread:
                     path = Path(self._root) / path
 
             btn_rect = self._get_cell_rect(cell_ind)
-            _parent = path.parent.as_posix()  if path.parent else  path.as_posix()
-            self.tree.show_dir(fn=path.as_posix(), root=_parent, btn_rect=btn_rect)
+            _parent = str(path.parent)  if path.parent else  str(path)
+            self.tree.show_dir(fn=str(path),  root=_parent,  btn_rect=btn_rect,  h_ed=self.ed.h)
 
         else:   # if code-item click
             code_ind = cell_ind - len(self._path_items)
@@ -438,21 +495,18 @@ class Bread:
     def _get_cell_rect(self, ind):
         """ returns screen coords: x,y, w,h
         """
-        get_cell_size = lambda i: statusbar_proc(self.h_sb, STATUSBAR_GET_CELL_SIZE, index=i)
-
         p = dlg_proc(self.hparent, DLG_CTL_PROP_GET, index=self.n_sb)
         x,y, w,h = p['x'],p['y'], p['w'], p['h'] # local statusbar coords
         sb_screen_coords = dlg_proc(self.hparent, DLG_COORD_LOCAL_TO_SCREEN, index=x, index2=y)
 
-        cell_w = get_cell_size(ind)
-        cell_sizes = (get_cell_size(i)  for i in range(ind))
-        cell_x = sum(cell_sizes)
+        r = statusbar_proc(self.h_sb, STATUSBAR_GET_CELL_RECT, index=ind)
         return (
-            sb_screen_coords[0]+cell_x, # x
-            sb_screen_coords[1],        # y
-            cell_w,  # w
-            h,       # h
+            sb_screen_coords[0]+r[0], # x
+            sb_screen_coords[1],      # y
+            r[2]-r[0],  # w
+            h,          # h
         )
+
 
     def _get_path_items(self):
         ### if need to hide project parents
@@ -486,7 +540,7 @@ class Bread:
                 _items = Path(self.fn).parts
                 _n_endcut = opt_max_dirs_count + 1 #+1 is file-name
                 cut, path_items = _items[:-_n_endcut], path_items[-_n_endcut:]
-                self._root = Path(*cut).as_posix()
+                self._root = str(Path(*cut))
 
         return path_items
 

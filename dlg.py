@@ -38,6 +38,7 @@ class TreeDlg:
         global POSITION_BOTTOM
 
         self.h = None
+        self.h_ed = None
         self.data = None
         self.id_map = {} # tree id -> `Node`
 
@@ -86,11 +87,12 @@ class TreeDlg:
         return h
 
 
-    def show_dir(self, fn, root, btn_rect):
+    def show_dir(self, fn, root, btn_rect, h_ed):
         """ btn_rect - screen (x,y, w,h) rect of button where tree should be shown
         """
         fn, root = Path(fn), Path(root)
         self._mode = self.MODE_FILE
+        self.h_ed = h_ed
 
         if self.h is None:
             self.h = self.init_form()
@@ -156,7 +158,7 @@ class TreeDlg:
         sel_item = self.id_map[id_item]
         if not sel_item.is_dir:     # open file
             path = os.path.normpath(sel_item.full_path)
-            ed_path = ed.get_filename()
+            ed_path = Editor(self.h_ed).get_filename()
             if not ed_path  or  path != os.path.normpath(ed_path):
                 file_open(path)
                 return True
@@ -199,7 +201,7 @@ def load_filepath_tree(fn, root):
     """
     rel_path = fn.relative_to(root)
 
-    data = Node(root.as_posix(), is_dir=True, is_hidden=False, parent=None, children=[])
+    data = Node(str(root), is_dir=True, is_hidden=False, parent=None, children=[])
     path = root
     item = data
     path_parts = list(rel_path.parts)
@@ -213,7 +215,10 @@ def load_filepath_tree(fn, root):
         path = os.path.join(path, name)
         if os.path.isfile(path):
             break
-        item = next(it for it in item.children  if it.name == name)
+        item = next((it for it in item.children  if it.name == name), None)
+        if item is None:
+            print('NOTE: Breadcrumbs - can\'t find file: {}'.format(path))
+            break
     return data
 
 def load_dir(path, parent=None):
