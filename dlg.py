@@ -111,7 +111,7 @@ class TreeDlg:
             'y': dlg_y,
         })
 
-        dlg_proc(self.h, DLG_SHOW_MODAL)
+        dlg_proc(self.h, DLG_SHOW_NONMODAL)
 
 
     def show_data(self, data, selected, btn_rect):
@@ -154,8 +154,9 @@ class TreeDlg:
 
         sel_item = self.id_map[id_item]
         if not sel_item.is_dir:     # open file
-            path = sel_item.full_path
-            if path != ed.get_filename():
+            path = os.path.normpath(sel_item.full_path)
+            ed_path = ed.get_filename()
+            if not ed_path  or  path != os.path.normpath(ed_path):
                 file_open(path)
                 return True
 
