@@ -227,10 +227,13 @@ class Command:
     def on_close(self, ed_self):
         h_ed0 = ed_self.get_prop(PROP_HANDLE_PRIMARY)
         h_ed1 = ed_self.get_prop(PROP_HANDLE_SECONDARY)
-        self._ed_uis.pop(h_ed0, None)
-        self._ed_uis.pop(h_ed1, None)
+        b0 = self._ed_uis.pop(h_ed0, None)
+        b1 = self._ed_uis.pop(h_ed1, None)
         self._opened_h_eds.discard(h_ed0)
         self._opened_h_eds.discard(h_ed1)
+
+        for b in filter(None, (b0,b1)):
+            b.on_close()
 
 
     def on_cell_click(self, id_dlg, id_ctl, data='', info=''):
@@ -465,8 +468,18 @@ class Bread:
                 cursor_xy = app_proc(PROC_GET_MOUSE_POS, '')
                 btn_rect = (*cursor_xy, 0, 0)
 
+            # highligh clicked cell
+            _cmd = STATUSBAR_SET_CELL_COLOR_LINE2 if opt_position_bottom else STATUSBAR_SET_CELL_COLOR_LINE
+            statusbar_proc(self.h_sb, _cmd, index=cell_ind, value=Colors.hover_bg)
+
             _parent = str(path.parent)  if path.parent else  str(path)
-            self.tree.show_dir(fn=str(path),  root=_parent,  btn_rect=btn_rect,  h_ed=self.ed.h)
+            self.tree.show_dir(
+                    fn       = str(path),
+                    root     = _parent,
+                    btn_rect = btn_rect,
+                    h_ed     = self.ed.h,
+                    on_hide  = lambda cell_ind=cell_ind: self._clear_cell_lines(cell_ind),
+            )
 
         else:   # if code-item click
             code_ind = cell_ind - len(self._path_items)
@@ -508,6 +521,11 @@ class Bread:
         self.update()
 
 
+    def on_close(self):
+        self.hparent = None
+        self.n_sb = None
+        self.h_sb = None
+
     def _update_bgs(self, n_path, n_code, n_prefix):
         _old_n_path = len(self._path_items)  if self._path_items else  0
         _old_n_code = len(self._code_items)  if self._code_items else  0
@@ -531,6 +549,14 @@ class Bread:
 
         for i in range(n_path, n_path+n_code): # update code cells bg+fg
             set_cell_colors(self.h_sb, i, bg=Colors.code_bg, fg=Colors.code_fg)
+
+
+    def _clear_cell_lines(self, cell_ind):
+        if self.hparent is not None:
+            _cell_ind_present = cell_ind < statusbar_proc(self.h_sb, STATUSBAR_GET_COUNT)
+            if _cell_ind_present:
+                for line_cmd in (STATUSBAR_SET_CELL_COLOR_LINE, STATUSBAR_SET_CELL_COLOR_LINE2):
+                    statusbar_proc(self.h_sb, line_cmd, index=cell_ind, value=COLOR_NONE)
 
 
     def _get_cell_rect(self, ind):
@@ -603,6 +629,8 @@ class Colors:
         cls.code_fg = colors['TabFontActive']['color']
 
         cls.border = colors['TabBorderActive']['color']
+
+        cls.hover_bg = colors['ButtonBgOver']['color']
 
 
 def set_cell_colors(h_sb, ind, bg, fg):

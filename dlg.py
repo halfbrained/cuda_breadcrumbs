@@ -66,6 +66,7 @@ class TreeDlg:
                 'topmost': True,
                 'on_key_down': self._on_key,
                 'on_deact': lambda *args,**vargs: self.hide(),
+                'on_hide': self.on_hide,
                 })
 
         # tree ##########################
@@ -87,15 +88,18 @@ class TreeDlg:
         return h
 
 
-    def show_dir(self, fn, root, btn_rect, h_ed):
+    def show_dir(self, fn, root, btn_rect, h_ed, on_hide=None):
         """ btn_rect - screen (x,y, w,h) rect of button where tree should be shown
         """
         fn, root = Path(fn), Path(root)
         self._mode = self.MODE_FILE
         self.h_ed = h_ed
+        self._on_hide = on_hide
+
 
         if self.h is None:
             self.h = self.init_form()
+        self._update_colors()
 
         self.data = load_filepath_tree(fn, root)
 
@@ -146,6 +150,11 @@ class TreeDlg:
         elif key_code == VK_ESCAPE  and  not state:
             self.hide()
             return False
+
+
+    def on_hide(self, id_dlg, id_ctl, data='', info=''):
+        if self._on_hide:
+            self._on_hide()
 
 
     def _activate_item(self, id_item=None):
@@ -199,6 +208,11 @@ class TreeDlg:
             ch.id = id_
             if ch.children:
                 self._fill_tree(ch.children, parent=id_)
+
+    def _update_colors(self):
+        _colors = app_proc(PROC_THEME_UI_DICT_GET, '')
+        _color_form_bg = _colors['TabBg']['color']
+        dlg_proc(self.h, DLG_PROP_SET, prop={ 'color': _color_form_bg })
 
 
 def load_filepath_tree(fn, root):
