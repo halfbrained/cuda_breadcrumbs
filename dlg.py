@@ -1,6 +1,7 @@
 import os
 import json
 from pathlib import Path
+from time import time
 
 from cudatext import *
 
@@ -19,6 +20,8 @@ FILE_ATTRIBUTE_HIDDEN = 2 # stat.FILE_ATTRIBUTE_HIDDEN (for windows)
 
 DLG_W = 250
 DLG_H = 400
+
+IGNORE_INPUT_PERIOD = 0.05 # sec
 
 
 SORT_TYPE = 'name'
@@ -41,6 +44,7 @@ class TreeDlg:
         self.h_ed = None
         self.data = None
         self.id_map = {} # tree id -> `Node`
+        self.show_time = 0
 
         self._mode = self.MODE_NONE
 
@@ -65,7 +69,7 @@ class TreeDlg:
                 'keypreview': True,
                 'topmost': True,
                 'on_key_down': self._on_key,
-                'on_deact': lambda *args,**vargs: self.hide(),
+                'on_deact': self.on_deact,
                 'on_hide': self.on_hide,
                 })
 
@@ -96,7 +100,6 @@ class TreeDlg:
         self.h_ed = h_ed
         self._on_hide = on_hide
 
-
         if self.h is None:
             self.h = self.init_form()
         self._update_colors()
@@ -118,6 +121,7 @@ class TreeDlg:
             'y': dlg_y,
         })
 
+        self.show_time = time()
         dlg_proc(self.h, DLG_SHOW_NONMODAL)
 
 
@@ -151,6 +155,12 @@ class TreeDlg:
             self.hide()
             return False
 
+
+    def on_deact(self, id_dlg, id_ctl, data='', info=''):
+        if time() > self.show_time + IGNORE_INPUT_PERIOD:
+            self.hide()
+        else:
+            dlg_proc(self.h, DLG_FOCUS)
 
     def on_hide(self, id_dlg, id_ctl, data='', info=''):
         if self._on_hide:
