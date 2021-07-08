@@ -25,6 +25,7 @@ opt_file_sort_type    = 'name'
 opt_show_hidden_files = False
 opt_max_name_len      = 25
 opt_max_dirs_count    = 0
+opt_path_separator    = os.sep
 
 PROJECT_DIR = None
 IS_UNIX     = app_proc(PROC_GET_OS_SUFFIX, '') not in ['', '__mac']
@@ -136,6 +137,7 @@ class Command:
         global opt_show_hidden_files
         global opt_max_name_len
         global opt_max_dirs_count
+        global opt_path_separator
 
         PROJECT_DIR = get_project_dir()
 
@@ -153,6 +155,7 @@ class Command:
         opt_show_hidden_files = str_to_bool(ini_read(fn_config, OPT_SEC, 'show_hidden_files', '0'))
         opt_max_name_len = int(ini_read(fn_config, OPT_SEC, 'max_name_len', str(opt_max_name_len)))
         opt_max_dirs_count = int(ini_read(fn_config, OPT_SEC, 'max_dirs_count', str(opt_max_dirs_count)))
+        opt_path_separator = ini_read(fn_config, OPT_SEC, 'path_separator', opt_path_separator)
 
 
     def config(self):
@@ -165,6 +168,7 @@ class Command:
         ini_write(fn_config, OPT_SEC, 'show_hidden_files',  bool_to_str(opt_show_hidden_files) )
         ini_write(fn_config, OPT_SEC, 'max_name_len',       str(opt_max_name_len) )
         ini_write(fn_config, OPT_SEC, 'max_dirs_count',     str(opt_max_dirs_count) )
+        ini_write(fn_config, OPT_SEC, 'path_separator',     opt_path_separator)
         file_open(fn_config)
 
     #def on_caret(self, ed_self):
@@ -362,7 +366,7 @@ class Bread:
             'vis': self.is_visible,
         })
         statusbar_proc(self.h_sb, STATUSBAR_SET_PADDING, value=4) # api=399
-        statusbar_proc(self.h_sb, STATUSBAR_SET_SEPARATOR, value='>')
+        statusbar_proc(self.h_sb, STATUSBAR_SET_SEPARATOR, value=opt_path_separator)
         statusbar_proc(self.h_sb, STATUSBAR_SET_OVERFLOW_LEFT, value=True)
 
 
