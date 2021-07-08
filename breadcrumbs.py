@@ -251,6 +251,10 @@ class Command:
                 if edt.h not in self._ed_uis:
                     self.on_open(edt)
 
+    # cmd
+    def show_tree(self):
+        breads = self._get_breads(ed)
+        breads[0].show_file_tree()
 
 
     def _update(self, ed_self):
@@ -452,13 +456,22 @@ class Bread:
                 elif self._root:
                     path = Path(self._root) / path
 
-            btn_rect = self._get_cell_rect(cell_ind)
+            if self.is_visible:
+                btn_rect = self._get_cell_rect(cell_ind)
+            else:
+                cursor_xy = app_proc(PROC_GET_MOUSE_POS, '')
+                btn_rect = (*cursor_xy, 0, 0)
+
             _parent = str(path.parent)  if path.parent else  str(path)
             self.tree.show_dir(fn=str(path),  root=_parent,  btn_rect=btn_rect,  h_ed=self.ed.h)
 
         else:   # if code-item click
             code_ind = cell_ind - len(self._path_items)
             print(f'code clicked: {Path(*self._path_items)} -- {self._code_items[:code_ind+1]}')
+
+    def show_file_tree(self):
+        self.on_fn_change()
+        self.on_click(len(self._path_items) - 1)
 
 
     def on_theme(self):

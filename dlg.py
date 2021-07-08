@@ -75,7 +75,7 @@ class TreeDlg:
                 'align': ALIGN_CLIENT,
                 'sp_a': 1,
                 'on_change': self.tree_on_click,
-                #'on_click_dbl': self.tree_on_click_dbl,
+                'on_click_dbl': self.tree_on_click_dbl,
                 })
         self.h_tree = dlg_proc(h, DLG_CTL_HANDLE, index=n)
         tree_proc(self.h_tree, TREE_THEME)
@@ -126,6 +126,11 @@ class TreeDlg:
 
 
     def tree_on_click(self, id_dlg, id_ctl, data='', info=''):
+        _lmb_pressed = 'L' in app_proc(PROC_GET_KEYSTATE, '')
+        if _lmb_pressed  and  self._activate_item():
+            self.hide()
+
+    def tree_on_click_dbl(self, id_dlg, id_ctl, data='', info=''):
         if self._activate_item():
             self.hide()
 

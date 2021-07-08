@@ -16,6 +16,11 @@ section=commands
 caption=Breadcrumbs\Toggle breadcrumbs
 method=toggle_vis
 
+[item3]
+section=commands
+caption=Breadcrumbs\Show file-tree
+method=show_tree
+
 [item100]
 section=commands
 caption=Breadcrumbs\Config
