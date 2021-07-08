@@ -28,7 +28,6 @@ opt_max_dirs_count    = 0
 opt_path_separator    = os.sep
 
 PROJECT_DIR = None
-IS_UNIX     = app_proc(PROC_GET_OS_SUFFIX, '') not in ['', '__mac']
 USER_DIR    = os.path.expanduser('~')
 
 SHOW_BAR = True
@@ -558,7 +557,7 @@ class Bread:
             path_items = Path(self.fn).relative_to(_root.parent).parts
 
         ### if need to collapse home-dir
-        elif IS_UNIX  and  opt_tilde_home  and  self.fn.startswith(USER_DIR):
+        elif opt_tilde_home  and  self.fn.startswith(USER_DIR):
             self._root = USER_DIR
             _root = Path(self._root)
             path_items = ('~',) + Path(self.fn).relative_to(_root).parts

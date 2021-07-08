@@ -28,7 +28,7 @@ Options description:
 * "file_sort_type" - how files in the tree-dialog are sorted:
 	* "name" - sort by filename (default)
 	* "ext" - sort by extension
-* "tilde_home" - (unix only) replace home directory path by a single item: `~`
+* "tilde_home" - replace home directory path by a single item: `~`
 * "show_hidden_files" - whether to show hidden files in tree-dialog (hidden by default)
 * "max_name_len" - max file/directory name length on breadcrumbs bar
 * "max_dirs_count" - limit number of directories displayed on breadcrumbs bar
