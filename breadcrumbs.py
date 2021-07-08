@@ -583,7 +583,7 @@ class Bread:
             path_items = Path(self.fn).relative_to(_root.parent).parts
 
         ### if need to collapse home-dir
-        elif opt_tilde_home  and  self.fn.startswith(USER_DIR):
+        elif opt_tilde_home  and  self.fn.startswith(USER_DIR + os.sep):
             self._root = USER_DIR
             _root = Path(self._root)
             path_items = ('~',) + Path(self.fn).relative_to(_root).parts
