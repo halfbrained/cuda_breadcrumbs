@@ -30,6 +30,7 @@ PROJECT_DIR = None
 IS_UNIX     = app_proc(PROC_GET_OS_SUFFIX, '') not in ['', '__mac']
 USER_DIR    = os.path.expanduser('~')
 
+SHOW_BAR = True
 SHOW_CODE = False
 
 #CodeItem = namedtuple('CodeItem', 'name icon')
@@ -235,8 +236,27 @@ class Command:
         bread = self._ed_uis[h_ed]
         bread.on_click(cell_ind)
 
+    # cmd
+    def toggle_vis(self):
+        global SHOW_BAR
+
+        SHOW_BAR = not SHOW_BAR
+
+        for bread in self._ed_uis.values():
+            bread.set_visible(SHOW_BAR)
+
+        if SHOW_BAR:  # show
+            visible_eds = (ed_group(i)  for i in range(9))
+            for edt in filter(None, visible_eds):
+                if edt.h not in self._ed_uis:
+                    self.on_open(edt)
+
+
 
     def _update(self, ed_self):
+        if not SHOW_BAR:
+            return
+
         breads = self._get_breads(ed_self)
         for b in breads:
             b.update()
@@ -262,7 +282,7 @@ class Command:
                     h_ed2 = None # dont add second bread if single file
 
             if bc0 is None: # need new bread
-                bc0 = Bread(ed_self)
+                bc0 = Bread(ed_self, SHOW_BAR)
                 self._ed_uis[h_ed] = bc0
 
         # process secondary editor
@@ -276,7 +296,7 @@ class Command:
                     self._ed_uis[h_ed2] = bc0 # point both editors to the same Bread
                     h_ed2 = None    # -- same file - dont add second ed to result
                 else:
-                    bc2 = Bread(ed2)
+                    bc2 = Bread(ed2, SHOW_BAR)
                     self._ed_uis[h_ed2] = bc2
 
         return (bc0,)  if h_ed2 is None else  (bc0,bc2)
@@ -295,9 +315,10 @@ class Bread:
 
     _tree = None
 
-    def __init__(self, ed_self):
+    def __init__(self, ed_self, is_visible):
         self.ed = Editor(ed_self.get_prop(PROP_HANDLE_SELF))  if ed_self is ed else  ed_self
         self.fn = self.ed.get_filename()
+        self.is_visible = is_visible
 
         self.hparent = None
         self.n_sb = None
@@ -334,6 +355,7 @@ class Bread:
         dlg_proc(self.hparent, DLG_CTL_PROP_SET, index=self.n_sb, prop={
             'color': Colors.bg,
             'align': _align,
+            'vis': self.is_visible,
         })
         statusbar_proc(self.h_sb, STATUSBAR_SET_PADDING, value=4) # api=399
         statusbar_proc(self.h_sb, STATUSBAR_SET_SEPARATOR, value='>')
@@ -344,6 +366,12 @@ class Bread:
         self._path_items = []
         self._code_items = []
         statusbar_proc(self.h_sb, STATUSBAR_DELETE_ALL)
+
+    def set_visible(self, vis):
+        self.is_visible = vis
+        if self.hparent is not None:
+            dlg_proc(self.hparent, DLG_CTL_PROP_SET, index=self.n_sb, prop={'vis': vis})
+
 
     def update(self):
         if not self.fn:

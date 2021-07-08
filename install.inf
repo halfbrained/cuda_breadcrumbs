@@ -11,6 +11,11 @@ section=events
 ;events=on_caret
 events=on_open,on_save,on_state,on_focus,on_close
 
+[item2]
+section=commands
+caption=Breadcrumbs\Toggle breadcrumbs
+method=toggle_vis
+
 [item100]
 section=commands
 caption=Breadcrumbs\Config
