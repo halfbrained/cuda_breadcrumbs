@@ -25,7 +25,7 @@ opt_file_sort_type    = 'name'
 opt_show_hidden_files = False
 opt_max_name_len      = 25
 opt_max_dirs_count    = 0
-opt_path_separator    = os.sep
+opt_path_separator    = '' # empty string for os.sep
 
 PROJECT_DIR = None
 USER_DIR    = os.path.expanduser('~')
@@ -368,7 +368,8 @@ class Bread:
             'vis': self.is_visible,
         })
         statusbar_proc(self.h_sb, STATUSBAR_SET_PADDING, value=4) # api=399
-        statusbar_proc(self.h_sb, STATUSBAR_SET_SEPARATOR, value=opt_path_separator)
+        _sep = opt_path_separator  or  os.sep
+        statusbar_proc(self.h_sb, STATUSBAR_SET_SEPARATOR, value=_sep)
         statusbar_proc(self.h_sb, STATUSBAR_SET_OVERFLOW_LEFT, value=True)
 
 
