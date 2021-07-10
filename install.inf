@@ -4,11 +4,22 @@ desc=Widget for quick filesystem navigation
 type=cudatext-plugin
 subdir=cuda_breadcrumbs
 homepage=https://github.com/halfbrained/cuda_breadcrumbs
+api=1.0.401
 
 [item1]
 section=events
 ;events=on_caret
-events=on_open,on_save,on_state,on_focus
+events=on_open,on_save,on_state,on_focus,on_close
+
+[item2]
+section=commands
+caption=Breadcrumbs\Toggle breadcrumbs
+method=toggle_vis
+
+[item3]
+section=commands
+caption=Breadcrumbs\Show file-tree
+method=show_tree
 
 [item100]
 section=commands

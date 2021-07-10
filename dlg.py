@@ -1,6 +1,7 @@
 import os
 import json
 from pathlib import Path
+from time import time
 
 from cudatext import *
 
@@ -20,10 +21,13 @@ FILE_ATTRIBUTE_HIDDEN = 2 # stat.FILE_ATTRIBUTE_HIDDEN (for windows)
 DLG_W = 250
 DLG_H = 400
 
+IGNORE_INPUT_PERIOD = 0.05 # sec
+
 
 SORT_TYPE = 'name'
 SORT_REVERSE = False
 SHOW_HIDDEN_FILES = False
+POSITION_BOTTOM = True
 
 
 class TreeDlg:
@@ -34,16 +38,20 @@ class TreeDlg:
     def __init__(self, opts=None):
         global SORT_TYPE
         global SHOW_HIDDEN_FILES
+        global POSITION_BOTTOM
 
         self.h = None
+        self.h_ed = None
         self.data = None
         self.id_map = {} # tree id -> `Node`
+        self.show_time = 0
 
         self._mode = self.MODE_NONE
 
         if opts:
             SORT_TYPE         = opts.get('sort_type',         SORT_TYPE)
             SHOW_HIDDEN_FILES = opts.get('show_hidden_files', SHOW_HIDDEN_FILES)
+            POSITION_BOTTOM   = opts.get('position_bottom',   POSITION_BOTTOM)
 
 
     def init_form(self):
@@ -61,7 +69,8 @@ class TreeDlg:
                 'keypreview': True,
                 'topmost': True,
                 'on_key_down': self._on_key,
-                'on_deact': lambda *args,**vargs: self.hide(),
+                'on_deact': self.on_deact,
+                'on_hide': self.on_hide,
                 })
 
         # tree ##########################
@@ -69,8 +78,9 @@ class TreeDlg:
         dlg_proc(h, DLG_CTL_PROP_SET, index=n, prop={
                 'name': 'tree',
                 'align': ALIGN_CLIENT,
+                'sp_a': 1,
                 'on_change': self.tree_on_click,
-                #'on_click_dbl': self.tree_on_click_dbl,
+                'on_click_dbl': self.tree_on_click_dbl,
                 })
         self.h_tree = dlg_proc(h, DLG_CTL_HANDLE, index=n)
         tree_proc(self.h_tree, TREE_THEME)
@@ -82,14 +92,17 @@ class TreeDlg:
         return h
 
 
-    def show_dir(self, fn, root, btn_rect):
+    def show_dir(self, fn, root, btn_rect, h_ed, on_hide=None):
         """ btn_rect - screen (x,y, w,h) rect of button where tree should be shown
         """
         fn, root = Path(fn), Path(root)
         self._mode = self.MODE_FILE
+        self.h_ed = h_ed
+        self._on_hide = on_hide
 
         if self.h is None:
             self.h = self.init_form()
+        self._update_colors()
 
         self.data = load_filepath_tree(fn, root)
 
@@ -108,7 +121,8 @@ class TreeDlg:
             'y': dlg_y,
         })
 
-        dlg_proc(self.h, DLG_SHOW_MODAL)
+        self.show_time = time()
+        dlg_proc(self.h, DLG_SHOW_NONMODAL)
 
 
     def show_code(self, path_items, btn_rect):
@@ -140,6 +154,11 @@ class TreeDlg:
 
 
     def tree_on_click(self, id_dlg, id_ctl, data='', info=''):
+        _lmb_pressed = 'L' in app_proc(PROC_GET_KEYSTATE, '')
+        if _lmb_pressed  and  self._activate_item():
+            self.hide()
+
+    def tree_on_click_dbl(self, id_dlg, id_ctl, data='', info=''):
         if self._activate_item():
             self.hide()
 
@@ -157,6 +176,17 @@ class TreeDlg:
             return False
 
 
+    def on_deact(self, id_dlg, id_ctl, data='', info=''):
+        if time() > self.show_time + IGNORE_INPUT_PERIOD:
+            self.hide()
+        else:
+            dlg_proc(self.h, DLG_FOCUS)
+
+    def on_hide(self, id_dlg, id_ctl, data='', info=''):
+        if self._on_hide:
+            self._on_hide()
+
+
     def _activate_item(self, id_item=None):
         """ opens tree item (file, directory)
             returns True if ok to close
@@ -166,7 +196,6 @@ class TreeDlg:
             id_item = tree_proc(self.h_tree, TREE_ITEM_GET_SELECTED)
             if id_item is None:
                 return
-
 
         if self._mode == self.MODE_FILE:
             sel_item = self.id_map[id_item]
@@ -214,6 +243,11 @@ class TreeDlg:
             if ch.children:
                 self._fill_tree(ch.children, parent=id_)
 
+    def _update_colors(self):
+        _colors = app_proc(PROC_THEME_UI_DICT_GET, '')
+        _color_form_bg = _colors['TabBg']['color']
+        dlg_proc(self.h, DLG_PROP_SET, prop={ 'color': _color_form_bg })
+
 
     def _get_tree_id(self, path_items):
         id_item = 0
@@ -248,7 +282,20 @@ def load_filepath_tree(fn, root):
         path = os.path.join(path, name)
         if os.path.isfile(path):
             break
-        item = next(it for it in item.children  if it.name == name)
+        item = next((it for it in item.children  if it.name == name), None)
+        if item is None:
+            print('NOTE: Breadcrumbs - can\'t find file: {}'.format(path))
+            break
+
+    # make sure all main-path items are visible
+    if not SHOW_HIDDEN_FILES:
+        item = data
+        for name in rel_path.parts:
+            item = next((ch for ch in item.children  if ch.name == name), None)
+            if item is None:
+                break
+            item.is_hidden = False
+
     return data
 
 def load_dir(path, parent=None):
@@ -300,15 +347,22 @@ def get_data_item(path_names, data):
 
 def _get_dlg_pos(btn_rect):
     x,y, w,h = btn_rect
-    dlg_y = y-DLG_H
     dlg_x = x
-    if dlg_y < 0: # if dialog doesnt fit on top - show it to the right of clicked button
-        dlg_y = 0
-        dlg_x = x+w
-
     _screen_rect = app_proc(PROC_COORD_MONITOR, '')
+    if POSITION_BOTTOM:
+        dlg_y = y-DLG_H
+        if dlg_y < 0: # if dialog doesnt fit on top - show it to the right of clicked button
+            dlg_y = 0
+            dlg_x = x+w
+    else: # position top
+        dlg_y = y+h
+        if dlg_y+DLG_H > _screen_rect[3]: # if dialog doesnt fit on bottom - show it to side of btn
+            dlg_y = _screen_rect[3] - DLG_H
+            dlg_x = x+w
+
     if dlg_x+DLG_W > _screen_rect[2]: # if doesnt fit on right - clamp to screen
         dlg_x = _screen_rect[2]-DLG_W
+
     return dlg_x, dlg_y
 
 
@@ -339,7 +393,7 @@ class FileNode(Node):
     __slots__ = ['ext', 'is_hidden', ]
 
     def __init__(self, name, is_dir, is_hidden, parent, children=(), id_=None):
-        super(self, FileNode).__init__(name, is_dir, parent, children, id_)
+        super(FileNode, self).__init__(name, is_dir, parent, children, id_)
         self.ext = os.path.splitext(name)[1].lower()  if not is_dir else  ''
         self.is_hidden = is_hidden
 
