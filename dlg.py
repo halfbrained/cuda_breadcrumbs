@@ -41,10 +41,13 @@ class TreeDlg:
         global POSITION_BOTTOM
 
         self.h = None
+        self.h_tree = None
         self.h_ed = None
         self.data = None
         self.id_map = {} # tree id -> `Node`
         self.show_time = 0
+        self._hide_time = 0
+        self._on_hide = None
 
         self._mode = self.MODE_NONE
 
@@ -183,6 +186,7 @@ class TreeDlg:
             dlg_proc(self.h, DLG_FOCUS)
 
     def on_hide(self, id_dlg, id_ctl, data='', info=''):
+        self._hide_time = time()
         if self._on_hide:
             self._on_hide()
 

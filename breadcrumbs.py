@@ -43,19 +43,56 @@ h_im_tree   = tree_proc(h_tree, TREE_GET_IMAGELIST)
 def bool_to_str(v): return '1' if v else '0'
 def str_to_bool(s): return s=='1'
 
-def get_carets_tree_path():
-    if not opt_code_navigation:
+
+class CodeTree:
+
+    _h = None
+    _h_tree = None
+
+    _h_active_tree = None
+
+    '!!!'
+    #_last
+
+    @classmethod
+    def get_carets_tree_path(cls, ed_self):
+        cls._h_active_tree = None
+        cls.ed = ed_self
+
+        if not opt_code_navigation:
+            return ()
+
+        carets = cls.ed.get_carets()
+        if carets:
+            node_id = cls._get_caret_node(carets)
+
+            if node_id:
+                #print(f'target tyree node: {(node_id,)}')
+                names = []
+                id_ = node_id
+                while True:
+                    props = tree_proc(cls._h_active_tree, TREE_ITEM_GET_PROPS, id_item=id_)
+                    names.append(props['text'] or '<empty>')
+
+                    if not props  or  props['parent'] == 0:
+                        break
+
+                    id_ = props['parent']
+
+                names.reverse()
+                return names
         return ()
 
-    def get_caret_node(carets, parent=0): #SKIP
-        items = tree_proc(h_tree, TREE_ITEM_ENUM, id_item=parent)
+    @classmethod
+    def _get_caret_node(cls, carets, parent=0):
+        items = cls._get_tree_items(cls._h_active_tree, parent)
         if items:
             for id_,name in items:
                 #print(f'.. checking name:{name}')
 
-                x0,y0, x1,y1 = tree_proc(h_tree, TREE_ITEM_GET_RANGE, id_item=id_)
+                x0,y0, x1,y1 = tree_proc(cls._h_active_tree, TREE_ITEM_GET_RANGE, id_item=id_)
                 if x0 == -1:
-                    child_id = get_caret_node(carets, id_)
+                    child_id = cls._get_caret_node(carets, id_)
                     if child_id is not None:
                         #print(f'NOTE: returning -1')
                         return child_id
@@ -63,33 +100,38 @@ def get_carets_tree_path():
 
                 if all((y0,x0) <= (c[1],c[0]) <= (y1,x1)  and  (c[2] == -1 or (y0,x0) <= (c[3],c[2]) <= (y1,x1))
                                 for c in carets):
-                    child_id = get_caret_node(carets, id_)
+                    child_id = cls._get_caret_node(carets, id_)
                     return child_id  if child_id is not None else  id_
 
-                child_id = get_caret_node(carets, id_)
+                child_id = cls._get_caret_node(carets, id_)
                 if child_id is not None:
                     return child_id
 
-    carets = ed.get_carets()
-    if carets:
-        node_id = get_caret_node(carets)
+    @classmethod
+    def _get_tree_items(cls, _h_tree, parent=0):
+        if _h_tree is None:
+            _h_tree = h_tree
+        # try to get items from app Code-Tree
+        items = tree_proc(_h_tree, TREE_ITEM_ENUM, id_item=parent)
+        # if no items - try to fill tree from editor
+        if parent == 0  and  not items:
+            if cls._h is None:
+                print(f'-- no CodeTree items: creating local tree')
 
-        if node_id:
-            #print(f'target tyree node: {(node_id,)}')
-            names = []
-            id_ = node_id
-            while True:
-                props = tree_proc(h_tree, TREE_ITEM_GET_PROPS, id_item=id_)
-                names.append(props['text'] or '<empty>')
+                cls._h = dlg_proc(0, DLG_CREATE)
+                _n = dlg_proc(cls._h, DLG_CTL_ADD, 'treeview')
+                cls._h_tree = dlg_proc(cls._h, DLG_CTL_HANDLE, index=_n)
+            print(f' ===== using local tree')
 
-                if not props  or  props['parent'] == 0:
-                    break
+            _h_tree = cls._h_tree
 
-                id_ = props['parent']
+            cls.ed.action(EDACTION_CODETREE_FILL, _h_tree)   # fill tree
+            items = tree_proc(_h_tree, TREE_ITEM_ENUM, id_item=parent)
 
-            names.reverse()
-            return names
-    return ()
+        cls._h_active_tree = _h_tree
+        return items
+
+
 
 def get_project_dir():
     """ choose project root directory: .opt_root_dir_source
@@ -412,7 +454,7 @@ class Bread:
 
         from time import time as t
         _t0 = t()
-        code_items = get_carets_tree_path()
+        code_items = CodeTree.get_carets_tree_path(self.ed)
         _t1 = t()
         print(f'(got tree path: {(_t1-_t0)*1000:.3f}ms )')
 
