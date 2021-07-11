@@ -331,7 +331,7 @@ class Bread:
 
     def __init__(self, ed_self, is_visible):
         self.ed = Editor(ed_self.get_prop(PROP_HANDLE_SELF))  if ed_self is ed else  ed_self
-        self.fn = self.ed.get_filename()
+        self.fn = self.ed.get_filename(options="*")
         self.is_visible = is_visible
 
         self.hparent = None
@@ -519,7 +519,7 @@ class Bread:
                 pass
 
     def on_fn_change(self):
-        self.fn = self.ed.get_filename()
+        self.fn = self.ed.get_filename(options="*")
 
         if self.fn  and  self.hparent is None:
             self._add_ui()
