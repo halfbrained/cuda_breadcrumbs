@@ -1,7 +1,6 @@
 import os
 import json
 from pathlib import Path
-from time import time
 
 from cudatext import *
 
@@ -21,13 +20,27 @@ FILE_ATTRIBUTE_HIDDEN = 2 # stat.FILE_ATTRIBUTE_HIDDEN (for windows)
 DLG_W = 250
 DLG_H = 400
 
-IGNORE_INPUT_PERIOD = 0.05 # sec
-
 
 SORT_TYPE = 'name'
 SORT_REVERSE = False
 SHOW_HIDDEN_FILES = False
 POSITION_BOTTOM = True
+
+
+def lock_tree(meth):
+
+    def f(*args, **vargs):
+        self = args[0]
+        if self.h_tree is not None:
+            tree_proc(self.h_tree, TREE_LOCK)
+
+        try:
+            return meth(*args, **vargs)
+        finally:
+            if self.h_tree is not None:
+                tree_proc(self.h_tree, TREE_UNLOCK)
+
+    return f
 
 
 class TreeDlg:
@@ -45,11 +58,12 @@ class TreeDlg:
         self.h_ed = None
         self.data = None
         self.id_map = {} # tree id -> `Node`
-        self.show_time = 0
-        self._hide_time = 0
-        self._on_hide = None
+
+        self.is_busy = False
 
         self._mode = self.MODE_NONE
+
+        self._on_hide = None
 
         if opts:
             SORT_TYPE         = opts.get('sort_type',         SORT_TYPE)
@@ -98,6 +112,11 @@ class TreeDlg:
     def show_dir(self, fn, root, btn_rect, h_ed, on_hide=None):
         """ btn_rect - screen (x,y, w,h) rect of button where tree should be shown
         """
+
+        timer_proc(TIMER_STOP, 'module=cuda_breadcrumbs;func=hide_tree;', 0)
+        if self._on_hide:
+            self._on_hide()
+
         fn, root = Path(fn), Path(root)
         self._mode = self.MODE_FILE
         self.h_ed = h_ed
@@ -106,6 +125,23 @@ class TreeDlg:
         if self.h is None:
             self.h = self.init_form()
         self._update_colors()
+
+        tree_proc(self.h_tree, TREE_ITEM_DELETE, id_item=0)
+
+        # set dlg position
+        dlg_x, dlg_y = _get_dlg_pos(btn_rect)
+        dlg_proc(self.h, DLG_PROP_SET, prop={
+            'x': dlg_x,
+            'y': dlg_y,
+        })
+
+        dlg_proc(self.h, DLG_SHOW_NONMODAL)
+
+        try:
+            self.is_busy = True
+            app_idle(True)
+        finally:
+            self.is_busy = False
 
         self.data = load_filepath_tree(fn, root)
 
@@ -116,16 +152,6 @@ class TreeDlg:
         sel_item = get_data_item(_rel_path.parts,  self.data)
         if sel_item  and  sel_item.parent:
             tree_proc(self.h_tree, TREE_ITEM_SELECT, id_item=sel_item.id)
-
-        # set dlg position
-        dlg_x, dlg_y = _get_dlg_pos(btn_rect)
-        dlg_proc(self.h, DLG_PROP_SET, prop={
-            'x': dlg_x,
-            'y': dlg_y,
-        })
-
-        self.show_time = time()
-        dlg_proc(self.h, DLG_SHOW_NONMODAL)
 
 
     def show_code(self, path_items, btn_rect):
@@ -165,6 +191,7 @@ class TreeDlg:
         if self._activate_item():
             self.hide()
 
+
     def _on_key(self, id_dlg, id_ctl, data='', info=''):
         key_code = id_ctl
         state = data
@@ -180,15 +207,15 @@ class TreeDlg:
 
 
     def on_deact(self, id_dlg, id_ctl, data='', info=''):
-        if time() > self.show_time + IGNORE_INPUT_PERIOD:
-            self.hide()
-        else:
-            dlg_proc(self.h, DLG_FOCUS)
+        if self.is_busy:
+            return
+
+        timer_proc(TIMER_START_ONE, 'module=cuda_breadcrumbs;func=hide_tree;', 100)
 
     def on_hide(self, id_dlg, id_ctl, data='', info=''):
-        self._hide_time = time()
         if self._on_hide:
             self._on_hide()
+            self._on_hide = None
 
 
     def _activate_item(self, id_item=None):
@@ -223,6 +250,7 @@ class TreeDlg:
                 ed.set_caret(x0,y0, options=CARET_OPTION_UNFOLD)
 
 
+    @lock_tree
     def _fill_tree(self, children, parent=0):
         """ fills tree with children: list[Node]
             parent - id_item in tree to parent new nodes
@@ -246,6 +274,7 @@ class TreeDlg:
             ch.id = id_
             if ch.children:
                 self._fill_tree(ch.children, parent=id_)
+
 
     def _update_colors(self):
         _colors = app_proc(PROC_THEME_UI_DICT_GET, '')
