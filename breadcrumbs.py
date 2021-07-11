@@ -51,13 +51,27 @@ class CodeTree:
 
     _h_active_tree = None
 
+
+
+
+
+
     '!!!'
-    #_last
+    _last_path = None
+    #search from last item selected
+    #add binary search
+
+
+
+
 
     @classmethod
     def get_carets_tree_path(cls, ed_self):
         cls._h_active_tree = None
         cls.ed = ed_self
+
+        start_names = cls._last_path
+        cls._last_path = None
 
         if not opt_code_navigation:
             return ()
@@ -80,6 +94,7 @@ class CodeTree:
                     id_ = props['parent']
 
                 names.reverse()
+                cls._last_path = names
                 return names
         return ()
 
@@ -222,7 +237,8 @@ class Command:
         file_open(fn_config)
 
     def on_caret(self, ed_self):
-        _callback = "module={};cmd={};".format('cuda_breadcrumbs', '_update_callblack')
+        #_callback = "module={};cmd={};".format('cuda_breadcrumbs', '_update_callblack')
+        _callback = "module=cuda_breadcrumbs;cmd=_update_callblack;"
         timer_proc(TIMER_START_ONE, _callback, 250, tag=str(ed_self.h))
 
 
