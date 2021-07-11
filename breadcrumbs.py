@@ -42,6 +42,10 @@ h_im_tree   = tree_proc(h_tree, TREE_GET_IMAGELIST)
 def bool_to_str(v): return '1' if v else '0'
 def str_to_bool(s): return s=='1'
 
+def hide_tree(tag='', info=''):
+    if Bread._tree:
+        Bread._tree.hide()
+
 def get_carets_tree_path():
     if not SHOW_CODE:
         return ()
@@ -488,7 +492,10 @@ class Bread:
 
     def show_file_tree(self):
         self.on_fn_change()
-        self.on_click(len(self._path_items) - 1)
+        if self.fn:
+            self.on_click(len(self._path_items) - 1)
+        else:
+            msg_status('Current document is not a file')
 
 
     def on_theme(self):
