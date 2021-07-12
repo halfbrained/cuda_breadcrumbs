@@ -33,6 +33,14 @@ Options description:
 * "max_name_len" - max file/directory name length on breadcrumbs bar
 * "max_dirs_count" - limit number of directories displayed on breadcrumbs bar
 * "path_separator" - breadcrumbs path separator (by default - OS path separator)
+* "code_navigation" - show breadcrumbs for position in Code-Tree, possible values:
+	* 0 - disabled
+	* 1 - fast, but might be inaccurate on some lexers
+	* 2 - less fast, but more accurate
+* "code_tree_height" - height of code-tree dialog, possible values:
+	* -1 - full screen height
+	* 0 - same as usual
+	* <pixel height>
     
 
 Author: halfbrained (https://github.com/halfbrained)
