@@ -24,7 +24,7 @@ opt_tilde_home        = True
 opt_file_sort_type    = 'name'
 opt_show_hidden_files = False
 opt_max_name_len      = 25
-opt_code_navigation   = True
+opt_code_navigation   = 0 # 0=off, 1=fast, 2=good
 opt_max_dirs_count    = 0
 opt_path_separator    = '' # empty string for os.sep
 
@@ -43,42 +43,30 @@ h_im_tree   = tree_proc(h_tree, TREE_GET_IMAGELIST)
 def bool_to_str(v): return '1' if v else '0'
 def str_to_bool(s): return s=='1'
 
+def hide_tree(tag='', info=''):
+    if Bread._tree:
+        Bread._tree.hide()
+
 
 class CodeTree:
-
+    # local tree if Code-Tree is hidden
     _h = None
     _h_tree = None
 
     _h_active_tree = None
 
-
-
-
-
-
-    '!!!'
-    _last_path = None
-    #search from last item selected
-    #add binary search
-
-
-
-
-
     @classmethod
     def get_carets_tree_path(cls, ed_self):
-        cls._h_active_tree = None
-        cls.ed = ed_self
-
-        start_names = cls._last_path
-        cls._last_path = None
-
         if not opt_code_navigation:
             return ()
 
+        cls._h_active_tree = None
+        cls.ed = ed_self
+
         carets = cls.ed.get_carets()
         if carets:
-            node_id = cls._get_caret_node(carets)
+            target_pos = (carets[0][1], carets[0][0])  # y0,x0
+            node_id = cls._get_caret_node(target_pos)
 
             if node_id:
                 #print(f'target tyree node: {(node_id,)}')
@@ -94,54 +82,112 @@ class CodeTree:
                     id_ = props['parent']
 
                 names.reverse()
-                cls._last_path = names
                 return names
         return ()
 
     @classmethod
-    def _get_caret_node(cls, carets, parent=0):
-        items = cls._get_tree_items(cls._h_active_tree, parent)
-        if items:
-            for id_,name in items:
-                #print(f'.. checking name:{name}')
+    def _get_caret_node(cls, target_pos):
+        """ ? items can be missing a range  (x0 == -1 ...)
+            ? range might only have start position (x0,y0)
+            `target_pos` - (y0,x0) !!! REVERSED
+            Get a list of candidate range-starts,  bisect it to search for best match
+        """
 
-                x0,y0, x1,y1 = tree_proc(cls._h_active_tree, TREE_ITEM_GET_RANGE, id_item=id_)
-                if x0 == -1:
-                    child_id = cls._get_caret_node(carets, id_)
-                    if child_id is not None:
-                        #print(f'NOTE: returning -1')
-                        return child_id
-                    continue
+        def scan_tree_item(target_pos, results, parent=0): #SKIP
+            items = cls._get_tree_items(cls._h_active_tree, parent)
+            if not items:
+                return None
 
-                if all((y0,x0) <= (c[1],c[0]) <= (y1,x1)  and  (c[2] == -1 or (y0,x0) <= (c[3],c[2]) <= (y1,x1))
-                                for c in carets):
-                    child_id = cls._get_caret_node(carets, id_)
-                    return child_id  if child_id is not None else  id_
+            res = cls.bisect_codetreet(items, target_pos)
+            if res is None:     # have missing range in current `items` -> scan every item
+                for id_,name in items:
+                    scan_tree_item(target_pos, results, parent=id_)
+            else:   # found matching range
+                id_ = res[1]
+                scan_tree_item(target_pos, results, parent=id_)
+                results.append(res)
+        #end scan_tree_item
 
-                child_id = cls._get_caret_node(carets, id_)
-                if child_id is not None:
-                    return child_id
+        def scan_whole_tree(target_pos, results, parent=0): #SKIP
+            items = cls._get_tree_items(cls._h_active_tree, parent)
+            if items:
+                for p in items:
+                    id_,name = p['id'], p['text']
+                    range_ = tree_proc(cls._h_active_tree, TREE_ITEM_GET_RANGE, id_item=id_)
+                    if range_[0] != -1:
+                        results.append((range_, id_))
+                    if p['sub_items']:
+                        scan_whole_tree(target_pos, results, parent=id_)
+        #end scan_whole_tree
+
+
+        results = []
+        if opt_code_navigation == 1: # fast
+            scan_tree_item(target_pos, results)     # fills `results`
+        elif opt_code_navigation == 2:
+            scan_whole_tree(target_pos, results)     # fills `results`
+
+        # look for closest match
+        if results:
+            best = None
+            best_pos = None
+            for m in results:
+                mpos = (m[0][1], m[0][0])
+                if best is None  or  (mpos <= target_pos  and  mpos > best_pos):
+                    best = m
+                    best_pos = mpos
+            return best[1] # -- id_item
+
+
+    @classmethod
+    # modified;  original: bisect_right - https://github.com/python/cpython/blob/3.9/Lib/bisect.py
+    def bisect_codetreet(cls, a, x):
+        """ returns closest item: (range, item_id)
+        """
+        # `a`: list((id_, name))
+        lo = 0
+        hi = len(a)
+        while lo < hi:
+            mid = (lo+hi)//2
+
+            range_ = tree_proc(cls._h_active_tree, TREE_ITEM_GET_RANGE, id_item=a[mid][0]) # x0,y0, x1,y1
+            if range_[0] == -1:
+                #print(f'NOTE: nore result: {a[mid]}')
+                return None
+
+            _a = (x, lo,hi)
+            mid_val = (range_[1], range_[0]) # (start_y, start_x)
+            if x < mid_val:
+                hi = mid
+            else:
+                lo = mid+1
+
+        if lo == 0:
+            return None
+        range_ = tree_proc(cls._h_active_tree, TREE_ITEM_GET_RANGE, id_item=a[lo-1][0])
+        return range_, a[lo-1][0]
+
 
     @classmethod
     def _get_tree_items(cls, _h_tree, parent=0):
-        if _h_tree is None:
-            _h_tree = h_tree
-        # try to get items from app Code-Tree
-        items = tree_proc(_h_tree, TREE_ITEM_ENUM, id_item=parent)
-        # if no items - try to fill tree from editor
-        if parent == 0  and  not items:
-            if cls._h is None:
-                print(f'-- no CodeTree items: creating local tree')
+        if parent == 0:   # only check on initial call   (not for recursive calls)
+            pan_vis = app_proc(PROC_SHOW_SIDEPANEL_GET, '')         # sidepanel is visible
+            if pan_vis  and  app_proc(PROC_SIDEPANEL_GET,'') == 'Code tree':   # sidepanel is Code-Tree
+                _h_tree = h_tree
+            # code tree is not visible
+            else:
+                if cls._h is None:
+                    cls._h = dlg_proc(0, DLG_CREATE)
+                    _n = dlg_proc(cls._h, DLG_CTL_ADD, 'treeview')
+                    cls._h_tree = dlg_proc(cls._h, DLG_CTL_HANDLE, index=_n)
 
-                cls._h = dlg_proc(0, DLG_CREATE)
-                _n = dlg_proc(cls._h, DLG_CTL_ADD, 'treeview')
-                cls._h_tree = dlg_proc(cls._h, DLG_CTL_HANDLE, index=_n)
-            print(f' ===== using local tree')
+                _h_tree = cls._h_tree
+                cls.ed.action(EDACTION_CODETREE_FILL, _h_tree)   # fill local tree
 
-            _h_tree = cls._h_tree
-
-            cls.ed.action(EDACTION_CODETREE_FILL, _h_tree)   # fill tree
+        if opt_code_navigation == 1:
             items = tree_proc(_h_tree, TREE_ITEM_ENUM, id_item=parent)
+        elif opt_code_navigation == 2:
+            items = tree_proc(_h_tree, TREE_ITEM_ENUM_EX, id_item=parent)
 
         cls._h_active_tree = _h_tree
         return items
@@ -203,6 +249,7 @@ class Command:
         global opt_max_name_len
         global opt_max_dirs_count
         global opt_path_separator
+        global opt_code_navigation
 
         PROJECT_DIR = get_project_dir()
 
@@ -221,7 +268,10 @@ class Command:
         opt_max_name_len = int(ini_read(fn_config, OPT_SEC, 'max_name_len', str(opt_max_name_len)))
         opt_max_dirs_count = int(ini_read(fn_config, OPT_SEC, 'max_dirs_count', str(opt_max_dirs_count)))
         opt_path_separator = ini_read(fn_config, OPT_SEC, 'path_separator', opt_path_separator)
+        opt_code_navigation = int(ini_read(fn_config, OPT_SEC, 'code_navigation', str(opt_code_navigation)))
 
+        if opt_code_navigation not in {0,1,2}:
+            opt_code_navigation = 0
 
     def config(self):
         _root_dir_source_str = ','.join(map(str, opt_root_dir_source))
@@ -234,12 +284,12 @@ class Command:
         ini_write(fn_config, OPT_SEC, 'max_name_len',       str(opt_max_name_len) )
         ini_write(fn_config, OPT_SEC, 'max_dirs_count',     str(opt_max_dirs_count) )
         ini_write(fn_config, OPT_SEC, 'path_separator',     opt_path_separator)
+        ini_write(fn_config, OPT_SEC, 'code_navigation',    str(opt_code_navigation) )
         file_open(fn_config)
 
     def on_caret(self, ed_self):
-        #_callback = "module={};cmd={};".format('cuda_breadcrumbs', '_update_callblack')
         _callback = "module=cuda_breadcrumbs;cmd=_update_callblack;"
-        timer_proc(TIMER_START_ONE, _callback, 250, tag=str(ed_self.h))
+        timer_proc(TIMER_START_ONE, _callback, 500, tag=str(ed_self.h))
 
 
     def on_open(self, ed_self):
@@ -383,6 +433,8 @@ class Command:
                 else:
                     bc2 = Bread(ed2, SHOW_BAR)
                     self._ed_uis[h_ed2] = bc2
+            elif bc2 is bc0:
+                h_ed2 = None
 
         return (bc0,)  if h_ed2 is None else  (bc0,bc2)
 
@@ -467,13 +519,7 @@ class Bread:
         _old_root = self._root
 
         path_items = self._get_path_items()
-
-        from time import time as t
-        _t0 = t()
         code_items = CodeTree.get_carets_tree_path(self.ed)
-        _t1 = t()
-        print(f'(got tree path: {(_t1-_t0)*1000:.3f}ms )')
-
 
         root_changed = self._root != _old_root
 
@@ -568,9 +614,15 @@ class Bread:
         else:   # if code-item click
             _code_ind = cell_ind - len(self._path_items)
             _code_path_items = self._code_items[:_code_ind+1]
-            print(f'code clicked: {Path(*self._path_items)} -- {_code_path_items}')
+            #print(f'code clicked: {Path(*self._path_items)} -- {_code_path_items}')
+
+            # highligh clicked cell
+            _cmd = STATUSBAR_SET_CELL_COLOR_LINE2 if opt_position_bottom else STATUSBAR_SET_CELL_COLOR_LINE
+            statusbar_proc(self.h_sb, _cmd, index=cell_ind, value=Colors.hover_bg)
+
             _btn_rect = self._get_cell_rect(cell_ind)
-            self.tree.show_code(_code_path_items, _btn_rect)
+            _on_hide = lambda cell_ind=cell_ind: self._clear_cell_lines(cell_ind)
+            self.tree.show_code(_code_path_items, _btn_rect, h_ed=self.ed.h, on_hide=_on_hide)
 
     def show_file_tree(self):
         self.on_fn_change()
@@ -713,7 +765,14 @@ class Colors:
         cls.path_fg = colors['TabFont'      ]['color']
         cls.path_bg_root_parents = colors['SideBg']['color']
 
-        cls.code_bg = colors['TabActive'    ]['color']
+        #cls.code_bg = colors['TabActive'    ]['color']
+        r,g,b = cls.path_bg&0xff, (cls.path_bg>>8)&0xff, (cls.path_bg>>16)&0xff
+        offset = 12
+        if r+g+b < (0xff-offset)<<16:
+            r,g,b = min(0xff, r+offset), min(0xff, g+offset), min(0xff, b+offset)
+        else:
+            r,g,b = max(0, r-offset), max(0, g-offset), max(0, b-offset)
+        cls.code_bg = r | (g<<8) | (b<<16)
         cls.code_fg = colors['TabFontActive']['color']
 
         cls.border = colors['TabBorderActive']['color']

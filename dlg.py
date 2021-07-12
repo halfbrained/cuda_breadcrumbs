@@ -112,7 +112,6 @@ class TreeDlg:
     def show_dir(self, fn, root, btn_rect, h_ed, on_hide=None):
         """ btn_rect - screen (x,y, w,h) rect of button where tree should be shown
         """
-
         timer_proc(TIMER_STOP, 'module=cuda_breadcrumbs;func=hide_tree;', 0)
         if self._on_hide:
             self._on_hide()
@@ -154,19 +153,20 @@ class TreeDlg:
             tree_proc(self.h_tree, TREE_ITEM_SELECT, id_item=sel_item.id)
 
 
-    def show_code(self, path_items, btn_rect):
+    def show_code(self, path_items, btn_rect, h_ed, on_hide=None):
+        timer_proc(TIMER_STOP, 'module=cuda_breadcrumbs;func=hide_tree;', 0)
+        if self._on_hide:
+            self._on_hide()
+
         self._mode = self.MODE_CODE
+        self.h_ed = h_ed
+        self._on_hide = on_hide
 
         if self.h is None:
             self.h = self.init_form()
+        self._update_colors()
 
-        # fill tree from active Editor
-        ed.action(EDACTION_CODETREE_FILL, self.h_tree)
-
-        # select `fn` tree item
-        target_id = self._get_tree_id(path_items)
-        if target_id is not None:
-            tree_proc(self.h_tree, TREE_ITEM_SELECT, id_item=target_id)
+        tree_proc(self.h_tree, TREE_ITEM_DELETE, id_item=0)
 
         # set dlg position
         dlg_x, dlg_y = _get_dlg_pos(btn_rect)
@@ -175,7 +175,22 @@ class TreeDlg:
             'y': dlg_y,
         })
 
-        dlg_proc(self.h, DLG_SHOW_MODAL)
+        dlg_proc(self.h, DLG_SHOW_NONMODAL)
+
+        try:
+            self.is_busy = True
+            app_idle(True)
+        finally:
+            self.is_busy = False
+
+        # fill tree from active Editor
+        edt = Editor(self.h_ed)
+        edt.action(EDACTION_CODETREE_FILL, self.h_tree)
+
+        # select `fn` tree item
+        target_id = self._get_tree_id(path_items)
+        if target_id is not None:
+            tree_proc(self.h_tree, TREE_ITEM_SELECT, id_item=target_id)
 
 
     def hide(self):
@@ -228,11 +243,12 @@ class TreeDlg:
             if id_item is None:
                 return
 
+        edt = Editor(self.h_ed)
         if self._mode == self.MODE_FILE:
             sel_item = self.id_map[id_item]
             if not sel_item.is_dir:     # open file
                 path = sel_item.full_path
-                if path != ed.get_filename():
+                if path != edt.get_filename():
                     file_open(path)
                     return True
             else:           # load directory
@@ -246,8 +262,8 @@ class TreeDlg:
             x0,y0, x1,y1 = tree_proc(self.h_tree, TREE_ITEM_GET_RANGE, id_item=id_item)
             if x0 != -1  and  y0 != -1:     # move caret to target range
                 _top = max(0, y0-3)
-                ed.set_prop(PROP_LINE_TOP, _top)
-                ed.set_caret(x0,y0, options=CARET_OPTION_UNFOLD)
+                edt.set_prop(PROP_LINE_TOP, _top)
+                edt.set_caret(x0,y0, options=CARET_OPTION_UNFOLD)
 
 
     @lock_tree
@@ -282,18 +298,21 @@ class TreeDlg:
         dlg_proc(self.h, DLG_PROP_SET, prop={ 'color': _color_form_bg })
 
 
-    def _get_tree_id(self, path_items):
-        id_item = 0
-        for name in path_items:
-            items = tree_proc(self.h_tree, TREE_ITEM_ENUM, id_item=id_item) # list[id,name] or None
-            if not items:
-                return None
-            id_item = next((id_ for id_,item_name in items  if item_name == name), None)
-            if id_item is None:
-                return None
-        return id_item
+    def _get_tree_id(self, path_items, ind=0, id_=0):
+        # recursion because nodes can have same names (html...)
+        name = path_items[ind]
+        items = tree_proc(self.h_tree, TREE_ITEM_ENUM, id_item=id_) # list[id,name] or None
+        if not items:
+            return None
 
-
+        match_ids = (id_ for id_,item_name in items  if item_name == name)
+        for id_item in match_ids:
+            if ind == len(path_items)-1: # found last
+                return id_item
+            else:
+                res = self._get_tree_id(path_items, ind+1, id_=id_item)
+                if res is not None:
+                    return res
 
 
 def load_filepath_tree(fn, root):
@@ -358,14 +377,6 @@ def load_dir(path, parent=None):
 
     items.sort(key=sort_key, reverse=SORT_REVERSE)
     return items
-
-
-#def load_code_tree(path_items):
-    #""" loads Node-tree from Code-Tree
-    #"""
-    #data = FileNode('root', is_dir=True, parent=None, children=[])
-
-
 
 
 def get_data_item(path_names, data):
