@@ -424,8 +424,6 @@ def _get_dlg_pos(btn_rect, mode):
     return dlg_x,dlg_y, dlg_h
 
 
-
-
 class Node:
     __slots__ = ['name', 'is_dir', 'parent', 'children', 'id']
 
@@ -459,7 +457,7 @@ class FileNode(Node):
 
     @property
     def full_path(self):
-        return os.path.join(self.path_items)
+        return os.path.join(*self.path_items)
 
     def __str__(self):
         return f'{self.name} [{"d" if self.is_dir else "f"}:{self.id}] children={len(self.children)}'

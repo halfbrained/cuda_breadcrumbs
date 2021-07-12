@@ -49,152 +49,6 @@ def hide_tree(tag='', info=''):
         Bread._tree.hide()
 
 
-class CodeTree:
-    # local tree if Code-Tree is hidden
-    _h = None
-    _h_tree = None
-
-    _h_active_tree = None
-
-    @classmethod
-    def get_carets_tree_path(cls, ed_self):
-        if not opt_code_navigation:
-            return ()
-
-        cls._h_active_tree = None
-        cls.ed = ed_self
-
-        carets = cls.ed.get_carets()
-        if carets:
-            target_pos = (carets[0][1], carets[0][0])  # y0,x0
-            node_id = cls._get_caret_node(target_pos)
-
-            if node_id:
-                #print(f'target tyree node: {(node_id,)}')
-                names = []
-                id_ = node_id
-                while True:
-                    props = tree_proc(cls._h_active_tree, TREE_ITEM_GET_PROPS, id_item=id_)
-                    names.append(props['text'] or '<empty>')
-
-                    if not props  or  props['parent'] == 0:
-                        break
-
-                    id_ = props['parent']
-
-                names.reverse()
-                return names
-        return ()
-
-    @classmethod
-    def _get_caret_node(cls, target_pos):
-        """ ? items can be missing a range  (x0 == -1 ...)
-            ? range might only have start position (x0,y0)
-            `target_pos` - (y0,x0) !!! REVERSED
-            Get a list of candidate range-starts,  bisect it to search for best match
-        """
-
-        def scan_tree_item(target_pos, results, parent=0): #SKIP
-            items = cls._get_tree_items(cls._h_active_tree, parent)
-            if not items:
-                return None
-
-            res = cls.bisect_codetreet(items, target_pos)
-            if res is None:     # have missing range in current `items` -> scan every item
-                for id_,name in items:
-                    scan_tree_item(target_pos, results, parent=id_)
-            else:   # found matching range
-                id_ = res[1]
-                scan_tree_item(target_pos, results, parent=id_)
-                results.append(res)
-        #end scan_tree_item
-
-        def scan_whole_tree(target_pos, results, parent=0): #SKIP
-            items = cls._get_tree_items(cls._h_active_tree, parent)
-            if items:
-                for p in items:
-                    id_,name = p['id'], p['text']
-                    range_ = tree_proc(cls._h_active_tree, TREE_ITEM_GET_RANGE, id_item=id_)
-                    if range_[0] != -1:
-                        results.append((range_, id_))
-                    if p['sub_items']:
-                        scan_whole_tree(target_pos, results, parent=id_)
-        #end scan_whole_tree
-
-
-        results = []
-        if opt_code_navigation == 1: # fast
-            scan_tree_item(target_pos, results)     # fills `results`
-        elif opt_code_navigation == 2:
-            scan_whole_tree(target_pos, results)     # fills `results`
-
-        # look for closest match
-        if results:
-            best = None
-            best_pos = None
-            for m in results:
-                mpos = (m[0][1], m[0][0])
-                if best is None  or  (mpos <= target_pos  and  mpos > best_pos):
-                    best = m
-                    best_pos = mpos
-            return best[1] # -- id_item
-
-
-    @classmethod
-    # modified;  original: bisect_right - https://github.com/python/cpython/blob/3.9/Lib/bisect.py
-    def bisect_codetreet(cls, a, x):
-        """ returns closest item: (range, item_id)
-        """
-        # `a`: list((id_, name))
-        lo = 0
-        hi = len(a)
-        while lo < hi:
-            mid = (lo+hi)//2
-
-            range_ = tree_proc(cls._h_active_tree, TREE_ITEM_GET_RANGE, id_item=a[mid][0]) # x0,y0, x1,y1
-            if range_[0] == -1:
-                #print(f'NOTE: nore result: {a[mid]}')
-                return None
-
-            _a = (x, lo,hi)
-            mid_val = (range_[1], range_[0]) # (start_y, start_x)
-            if x < mid_val:
-                hi = mid
-            else:
-                lo = mid+1
-
-        if lo == 0:
-            return None
-        range_ = tree_proc(cls._h_active_tree, TREE_ITEM_GET_RANGE, id_item=a[lo-1][0])
-        return range_, a[lo-1][0]
-
-
-    @classmethod
-    def _get_tree_items(cls, _h_tree, parent=0):
-        if parent == 0:   # only check on initial call   (not for recursive calls)
-            pan_vis = app_proc(PROC_SHOW_SIDEPANEL_GET, '')         # sidepanel is visible
-            if pan_vis  and  app_proc(PROC_SIDEPANEL_GET,'') == 'Code tree':   # sidepanel is Code-Tree
-                _h_tree = h_tree
-            # code tree is not visible
-            else:
-                if cls._h is None:
-                    cls._h = dlg_proc(0, DLG_CREATE)
-                    _n = dlg_proc(cls._h, DLG_CTL_ADD, 'treeview')
-                    cls._h_tree = dlg_proc(cls._h, DLG_CTL_HANDLE, index=_n)
-
-                _h_tree = cls._h_tree
-                cls.ed.action(EDACTION_CODETREE_FILL, _h_tree)   # fill local tree
-
-        if opt_code_navigation == 1:
-            items = tree_proc(_h_tree, TREE_ITEM_ENUM, id_item=parent)
-        elif opt_code_navigation == 2:
-            items = tree_proc(_h_tree, TREE_ITEM_ENUM_EX, id_item=parent)
-
-        cls._h_active_tree = _h_tree
-        return items
-
-
-
 def get_project_dir():
     """ choose project root directory: .opt_root_dir_source
     """
@@ -344,8 +198,12 @@ class Command:
                 for bread in self._ed_uis.values():
                     bread.update()
 
-        #elif state == APPSTATE_CODETREE_AFTER_FILL:
-            #self._update(ed)
+        elif state == APPSTATE_CODETREE_AFTER_FILL:
+            if opt_code_navigation:
+                _callback = "module=cuda_breadcrumbs;cmd=_update_callblack;"
+                _h_ed = ed.get_prop(PROP_HANDLE_SELF)
+                timer_proc(TIMER_START_ONE, _callback, 500, tag=str(_h_ed))
+
 
     def on_close(self, ed_self):
         h_ed0 = ed_self.get_prop(PROP_HANDLE_PRIMARY)
@@ -783,6 +641,151 @@ class Colors:
         cls.border = colors['TabBorderActive']['color']
 
         cls.hover_bg = colors['ButtonBgOver']['color']
+
+
+class CodeTree:
+    # local tree if Code-Tree is hidden
+    _h = None
+    _h_tree = None
+
+    _h_active_tree = None
+
+    @classmethod
+    def get_carets_tree_path(cls, ed_self):
+        if not opt_code_navigation:
+            return ()
+
+        cls._h_active_tree = None
+        cls.ed = ed_self
+
+        carets = cls.ed.get_carets()
+        if carets:
+            target_pos = (carets[0][1], carets[0][0])  # y0,x0
+            node_id = cls._get_caret_node(target_pos)
+
+            if node_id:
+                #print(f'target tyree node: {(node_id,)}')
+                names = []
+                id_ = node_id
+                while True:
+                    props = tree_proc(cls._h_active_tree, TREE_ITEM_GET_PROPS, id_item=id_)
+                    names.append(props['text'] or '<empty>')
+
+                    if not props  or  props['parent'] == 0:
+                        break
+
+                    id_ = props['parent']
+
+                names.reverse()
+                return names
+        return ()
+
+    @classmethod
+    def _get_caret_node(cls, target_pos):
+        """ ? items can be missing a range  (x0 == -1 ...)
+            ? range might only have start position (x0,y0)
+            `target_pos` - (y0,x0) !!! REVERSED
+            Get a list of candidate range-starts,  bisect it to search for best match
+        """
+
+        def scan_tree_item(target_pos, results, parent=0): #SKIP
+            items = cls._get_tree_items(cls._h_active_tree, parent)
+            if not items:
+                return None
+
+            res = cls.bisect_codetreet(items, target_pos)
+            if res is None:     # have missing range in current `items` -> scan every item
+                for id_,name in items:
+                    scan_tree_item(target_pos, results, parent=id_)
+            else:   # found matching range
+                id_ = res[1]
+                scan_tree_item(target_pos, results, parent=id_)
+                results.append(res)
+        #end scan_tree_item
+
+        def scan_whole_tree(target_pos, results, parent=0): #SKIP
+            items = cls._get_tree_items(cls._h_active_tree, parent)
+            if items:
+                for p in items:
+                    id_,name = p['id'], p['text']
+                    range_ = tree_proc(cls._h_active_tree, TREE_ITEM_GET_RANGE, id_item=id_)
+                    if range_[0] != -1:
+                        results.append((range_, id_))
+                    if p['sub_items']:
+                        scan_whole_tree(target_pos, results, parent=id_)
+        #end scan_whole_tree
+
+
+        results = []
+        if opt_code_navigation == 1: # fast
+            scan_tree_item(target_pos, results)     # fills `results`
+        elif opt_code_navigation == 2:
+            scan_whole_tree(target_pos, results)     # fills `results`
+
+        # look for closest match
+        if results:
+            best = None
+            best_pos = None
+            for m in results:
+                mpos = (m[0][1], m[0][0])
+                if best is None  or  (mpos <= target_pos  and  mpos > best_pos):
+                    best = m
+                    best_pos = mpos
+            return best[1] # -- id_item
+
+
+    @classmethod
+    # modified;  original: bisect_right - https://github.com/python/cpython/blob/3.9/Lib/bisect.py
+    def bisect_codetreet(cls, a, x):
+        """ returns closest item: (range, item_id)
+        """
+        # `a`: list((id_, name))
+        lo = 0
+        hi = len(a)
+        while lo < hi:
+            mid = (lo+hi)//2
+
+            range_ = tree_proc(cls._h_active_tree, TREE_ITEM_GET_RANGE, id_item=a[mid][0]) # x0,y0, x1,y1
+            if range_[0] == -1:
+                #print(f'NOTE: nore result: {a[mid]}')
+                return None
+
+            _a = (x, lo,hi)
+            mid_val = (range_[1], range_[0]) # (start_y, start_x)
+            if x < mid_val:
+                hi = mid
+            else:
+                lo = mid+1
+
+        if lo == 0:
+            return None
+        range_ = tree_proc(cls._h_active_tree, TREE_ITEM_GET_RANGE, id_item=a[lo-1][0])
+        return range_, a[lo-1][0]
+
+
+    @classmethod
+    def _get_tree_items(cls, _h_tree, parent=0):
+        if parent == 0:   # only check on initial call   (not for recursive calls)
+            pan_vis = app_proc(PROC_SHOW_SIDEPANEL_GET, '')         # sidepanel is visible
+            if pan_vis  and  app_proc(PROC_SIDEPANEL_GET,'') == 'Code tree':   # sidepanel is Code-Tree
+                _h_tree = h_tree
+            # code tree is not visible
+            else:
+                if cls._h is None:
+                    cls._h = dlg_proc(0, DLG_CREATE)
+                    _n = dlg_proc(cls._h, DLG_CTL_ADD, 'treeview')
+                    cls._h_tree = dlg_proc(cls._h, DLG_CTL_HANDLE, index=_n)
+
+                _h_tree = cls._h_tree
+                cls.ed.action(EDACTION_CODETREE_FILL, _h_tree)   # fill local tree
+
+        if opt_code_navigation == 1:
+            items = tree_proc(_h_tree, TREE_ITEM_ENUM, id_item=parent)
+        elif opt_code_navigation == 2:
+            items = tree_proc(_h_tree, TREE_ITEM_ENUM_EX, id_item=parent)
+
+        cls._h_active_tree = _h_tree
+        return items
 
 
 def set_cell_colors(h_sb, ind, bg, fg):
