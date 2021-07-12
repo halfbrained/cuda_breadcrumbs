@@ -27,6 +27,7 @@ opt_max_name_len      = 25
 opt_code_navigation   = 0 # 0=off, 1=fast, 2=good
 opt_max_dirs_count    = 0
 opt_path_separator    = '' # empty string for os.sep
+opt_code_tree_height  = 0 # 0=no change; -1=fullscreen; 1+=pixel height
 
 PROJECT_DIR = None
 USER_DIR    = os.path.expanduser('~')
@@ -250,6 +251,7 @@ class Command:
         global opt_max_dirs_count
         global opt_path_separator
         global opt_code_navigation
+        global opt_code_tree_height
 
         PROJECT_DIR = get_project_dir()
 
@@ -269,6 +271,7 @@ class Command:
         opt_max_dirs_count = int(ini_read(fn_config, OPT_SEC, 'max_dirs_count', str(opt_max_dirs_count)))
         opt_path_separator = ini_read(fn_config, OPT_SEC, 'path_separator', opt_path_separator)
         opt_code_navigation = int(ini_read(fn_config, OPT_SEC, 'code_navigation', str(opt_code_navigation)))
+        opt_code_tree_height = int(ini_read(fn_config, OPT_SEC, 'code_tree_height', str(opt_code_tree_height)))
 
         if opt_code_navigation not in {0,1,2}:
             opt_code_navigation = 0
@@ -285,6 +288,7 @@ class Command:
         ini_write(fn_config, OPT_SEC, 'max_dirs_count',     str(opt_max_dirs_count) )
         ini_write(fn_config, OPT_SEC, 'path_separator',     opt_path_separator)
         ini_write(fn_config, OPT_SEC, 'code_navigation',    str(opt_code_navigation) )
+        ini_write(fn_config, OPT_SEC, 'code_tree_height',     str(opt_code_tree_height) )
         file_open(fn_config)
 
     def on_caret(self, ed_self):
@@ -481,6 +485,7 @@ class Bread:
                 'sort_type':         opt_file_sort_type,
                 'show_hidden_files': opt_show_hidden_files,
                 'position_bottom':   opt_position_bottom,
+                'code_tree_height':  opt_code_tree_height,
             })
         return Bread._tree
 

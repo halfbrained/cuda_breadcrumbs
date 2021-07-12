@@ -19,6 +19,7 @@ FILE_ATTRIBUTE_HIDDEN = 2 # stat.FILE_ATTRIBUTE_HIDDEN (for windows)
 
 DLG_W = 250
 DLG_H = 400
+CODE_TREE_H = DLG_H
 
 
 SORT_TYPE = 'name'
@@ -52,6 +53,7 @@ class TreeDlg:
         global SORT_TYPE
         global SHOW_HIDDEN_FILES
         global POSITION_BOTTOM
+        global CODE_TREE_H
 
         self.h = None
         self.h_tree = None
@@ -69,6 +71,7 @@ class TreeDlg:
             SORT_TYPE         = opts.get('sort_type',         SORT_TYPE)
             SHOW_HIDDEN_FILES = opts.get('show_hidden_files', SHOW_HIDDEN_FILES)
             POSITION_BOTTOM   = opts.get('position_bottom',   POSITION_BOTTOM)
+            CODE_TREE_H       = opts.get('code_tree_height',  CODE_TREE_H)
 
 
     def init_form(self):
@@ -128,8 +131,9 @@ class TreeDlg:
         tree_proc(self.h_tree, TREE_ITEM_DELETE, id_item=0)
 
         # set dlg position
-        dlg_x, dlg_y = _get_dlg_pos(btn_rect)
+        dlg_x,dlg_y, dlg_h = _get_dlg_pos(btn_rect, self._mode)
         dlg_proc(self.h, DLG_PROP_SET, prop={
+            'h': dlg_h,
             'x': dlg_x,
             'y': dlg_y,
         })
@@ -169,8 +173,9 @@ class TreeDlg:
         tree_proc(self.h_tree, TREE_ITEM_DELETE, id_item=0)
 
         # set dlg position
-        dlg_x, dlg_y = _get_dlg_pos(btn_rect)
+        dlg_x,dlg_y, dlg_h = _get_dlg_pos(btn_rect, self._mode)
         dlg_proc(self.h, DLG_PROP_SET, prop={
+            'h': dlg_h,
             'x': dlg_x,
             'y': dlg_y,
         })
@@ -389,25 +394,36 @@ def get_data_item(path_names, data):
     return data
 
 
-def _get_dlg_pos(btn_rect):
+def _get_dlg_pos(btn_rect, mode):
+    screen_rect = app_proc(PROC_COORD_MONITOR, '')
+
+    dlg_h = DLG_H
+    if mode == TreeDlg.MODE_CODE  and  CODE_TREE_H is not None:
+        if CODE_TREE_H == -1: # fullscreen
+            dlg_h = screen_rect[3]
+        #elif CODE_TREE_H == 0: -- no change
+        elif CODE_TREE_H > 0: # pixel height
+            dlg_h = CODE_TREE_H
+
     x,y, w,h = btn_rect
     dlg_x = x
-    _screen_rect = app_proc(PROC_COORD_MONITOR, '')
     if POSITION_BOTTOM:
-        dlg_y = y-DLG_H
+        dlg_y = y-dlg_h
         if dlg_y < 0: # if dialog doesnt fit on top - show it to the right of clicked button
             dlg_y = 0
             dlg_x = x+w
     else: # position top
         dlg_y = y+h
-        if dlg_y+DLG_H > _screen_rect[3]: # if dialog doesnt fit on bottom - show it to side of btn
-            dlg_y = _screen_rect[3] - DLG_H
+        if dlg_y+dlg_h > screen_rect[3]: # if dialog doesnt fit on bottom - show it to side of btn
+            dlg_y = screen_rect[3] - dlg_h
             dlg_x = x+w
 
-    if dlg_x+DLG_W > _screen_rect[2]: # if doesnt fit on right - clamp to screen
-        dlg_x = _screen_rect[2]-DLG_W
+    if dlg_x+DLG_W > screen_rect[2]: # if doesnt fit on right - clamp to screen
+        dlg_x = screen_rect[2]-DLG_W
 
-    return dlg_x, dlg_y
+    return dlg_x,dlg_y, dlg_h
+
+
 
 
 class Node:
