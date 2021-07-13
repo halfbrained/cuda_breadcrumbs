@@ -38,7 +38,6 @@ SHOW_CODE = False
 #CodeItem = namedtuple('CodeItem', 'name icon')
 
 h_tree      = app_proc(PROC_GET_CODETREE, "")
-h_im_tree   = tree_proc(h_tree, TREE_GET_IMAGELIST)
 
 
 def bool_to_str(v): return '1' if v else '0'
@@ -323,6 +322,7 @@ class Bread:
         self.hparent = None
         self.n_sb = None
         self.h_sb = None
+        self.h_im = None
 
         self._root = None
         self._path_items = []
@@ -360,7 +360,7 @@ class Bread:
         })
         statusbar_proc(self.h_sb, STATUSBAR_SET_PADDING, value=4) # api=399
         _sep = opt_path_separator  or  os.sep
-        statusbar_proc(self.h_sb, STATUSBAR_SET_SEPARATOR, value=_sep)
+        statusbar_proc(self.h_sb, STATUSBAR_SET_SEPARATOR,     value=_sep)
         statusbar_proc(self.h_sb, STATUSBAR_SET_OVERFLOW_LEFT, value=True)
 
 
@@ -379,10 +379,17 @@ class Bread:
         if not self.fn:
             return
 
+        if opt_code_navigation != 0  and  self.h_im is None:
+            h_im = tree_proc(h_tree, TREE_GET_IMAGELIST)
+            if h_im:
+                self.h_im = h_im
+                statusbar_proc(self.h_sb, STATUSBAR_SET_IMAGELIST, value=self.h_im)
+
         _old_root = self._root
 
         path_items = self._get_path_items()
         code_items = CodeTree.get_carets_tree_path(self.ed)
+        code_icons = CodeTree.get_icons()
 
         root_changed = self._root != _old_root
 
@@ -401,23 +408,26 @@ class Bread:
 
         # update changed  PATH  cells
         for i,(old,new) in enumerate(zip_longest(self._path_items, path_items)):
-            if old != new  and  new is not None:
-                hint = None
-                if len(new) > opt_max_name_len+1:
-                    hint = new
-                    new = ellipsize(new)
-                statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_TEXT, index=i, value=new)
-                _callback = "module={};cmd={};info={}:{};".format(
-                                        'cuda_breadcrumbs', 'on_cell_click', i, self.ed.h)
-                statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_CALLBACK, index=i, value=_callback)
-                if i == 0  and  self._root:
-                    statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_HINT, index=i, value=self._root)
-                elif hint is not None:
-                    statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_HINT, index=i, value=hint)
+            if old != new:
+                if new is not None:
+                    hint = None
+                    if len(new) > opt_max_name_len+1:
+                        hint = new
+                        new = ellipsize(new)
+                    statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_TEXT, index=i, value=new)
+                    _callback = "module={};cmd={};info={}:{};".format(
+                                            'cuda_breadcrumbs', 'on_cell_click', i, self.ed.h)
+                    statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_CALLBACK, index=i, value=_callback)
+                    if i == 0  and  self._root:
+                        statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_HINT, index=i, value=self._root)
+                    elif hint is not None:
+                        statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_HINT, index=i, value=hint)
+                elif old is None: # was not path cell, but code-path
+                    statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_IMAGEINDEX, index=i, image_index=-1)
 
         # update changed  CODE  cells
         offset = len(path_items)
-        for i,(old,new) in enumerate(zip_longest(self._code_items, code_items)):
+        for i,(old,new,ic_ind) in enumerate(zip_longest(self._code_items, code_items,code_icons)):
             if old != new  and  new is not None:
                 hint = None
                 if len(new) > opt_max_name_len+1:
@@ -429,9 +439,9 @@ class Bread:
                 _callback = "module={};cmd={};info={}:{};".format(
                                         'cuda_breadcrumbs', 'on_cell_click', i+offset, self.ed.h)
                 statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_CALLBACK, index=i+offset, value=_callback)
-                '!!!'
                 # update icons from tree data
-                #statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_TEXT, index=i, value=new)
+                if opt_code_navigation != 0  and  self.h_im is not None:
+                    statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_IMAGEINDEX, index=i+offset, value=ic_ind)
 
         self._path_items = path_items
         self._code_items = code_items
@@ -650,6 +660,8 @@ class CodeTree:
 
     _h_active_tree = None
 
+    _last_icons = ()
+
     @classmethod
     def get_carets_tree_path(cls, ed_self):
         if not opt_code_navigation:
@@ -657,6 +669,7 @@ class CodeTree:
 
         cls._h_active_tree = None
         cls.ed = ed_self
+        cls._last_icons = ()
 
         carets = cls.ed.get_carets()
         if carets:
@@ -665,20 +678,29 @@ class CodeTree:
 
             if node_id:
                 #print(f'target tyree node: {(node_id,)}')
-                names = []
+                names,icons = [],[]
                 id_ = node_id
                 while True:
                     props = tree_proc(cls._h_active_tree, TREE_ITEM_GET_PROPS, id_item=id_)
                     names.append(props['text'] or '<empty>')
+                    icons.append(props['icon'])
 
                     if not props  or  props['parent'] == 0:
                         break
 
                     id_ = props['parent']
 
+                icons.reverse()
+                cls._last_icons = icons
+
                 names.reverse()
                 return names
         return ()
+
+    @classmethod
+    def get_icons(cls):
+        """get icons for last list of names"""
+        return cls._last_icons
 
     @classmethod
     def _get_caret_node(cls, target_pos):
