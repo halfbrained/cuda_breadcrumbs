@@ -61,6 +61,10 @@ class TreeDlg:
         self.data = None
         self.id_map = {} # tree id -> `Node`
 
+        _h_codetree = app_proc(PROC_GET_CODETREE, "")
+        self.h_im_file = None
+        self.h_im_code = tree_proc(_h_codetree, TREE_GET_IMAGELIST)
+
         self.is_busy = False
 
         self._mode = self.MODE_NONE
@@ -106,8 +110,8 @@ class TreeDlg:
         tree_proc(self.h_tree, TREE_THEME)
 
         # init icons
-        h_im = tree_proc(self.h_tree, TREE_GET_IMAGELIST)
-        FileIcons.init(h_im)
+        self.h_im_file = tree_proc(self.h_tree, TREE_GET_IMAGELIST)
+        FileIcons.init(self.h_im_file)
 
         return h
 
@@ -121,22 +125,7 @@ class TreeDlg:
 
         fn, root = Path(fn), Path(root)
         self._mode = self.MODE_FILE
-        self.h_ed = h_ed
-        self._on_hide = on_hide
-
-        if self.h is None:
-            self.h = self.init_form()
-        self._update_colors()
-
-        tree_proc(self.h_tree, TREE_ITEM_DELETE, id_item=0)
-
-        # set dlg position
-        dlg_x,dlg_y, dlg_h = _get_dlg_pos(btn_rect, self._mode)
-        dlg_proc(self.h, DLG_PROP_SET, prop={
-            'h': dlg_h,
-            'x': dlg_x,
-            'y': dlg_y,
-        })
+        self._setup_tree(h_ed, on_hide, btn_rect)
 
         dlg_proc(self.h, DLG_SHOW_NONMODAL)
 
@@ -163,22 +152,7 @@ class TreeDlg:
             self._on_hide()
 
         self._mode = self.MODE_CODE
-        self.h_ed = h_ed
-        self._on_hide = on_hide
-
-        if self.h is None:
-            self.h = self.init_form()
-        self._update_colors()
-
-        tree_proc(self.h_tree, TREE_ITEM_DELETE, id_item=0)
-
-        # set dlg position
-        dlg_x,dlg_y, dlg_h = _get_dlg_pos(btn_rect, self._mode)
-        dlg_proc(self.h, DLG_PROP_SET, prop={
-            'h': dlg_h,
-            'x': dlg_x,
-            'y': dlg_y,
-        })
+        self._setup_tree(h_ed, on_hide, btn_rect)
 
         dlg_proc(self.h, DLG_SHOW_NONMODAL)
 
@@ -297,10 +271,37 @@ class TreeDlg:
                 self._fill_tree(ch.children, parent=id_)
 
 
+    def _setup_tree(self, h_ed, on_hide, btn_rect):
+        self.h_ed = h_ed
+        self._on_hide = on_hide
+
+        if self.h is None:
+            self.h = self.init_form()
+        self._update_colors()
+        self._update_icons()
+
+        tree_proc(self.h_tree, TREE_ITEM_DELETE, id_item=0)
+
+        # set dlg position
+        dlg_x,dlg_y, dlg_h = _get_dlg_pos(btn_rect, self._mode)
+        dlg_proc(self.h, DLG_PROP_SET, prop={
+            'h': dlg_h,
+            'x': dlg_x,
+            'y': dlg_y,
+        })
+
     def _update_colors(self):
         _colors = app_proc(PROC_THEME_UI_DICT_GET, '')
         _color_form_bg = _colors['TabBg']['color']
         dlg_proc(self.h, DLG_PROP_SET, prop={ 'color': _color_form_bg })
+
+    def _update_icons(self):
+        h_im = None
+        if self._mode == self.MODE_FILE:    h_im = self.h_im_file
+        elif self._mode == self.MODE_CODE:  h_im = self.h_im_code
+
+        if h_im is not None:
+            tree_proc(self.h_tree, TREE_SET_IMAGELIST, text=h_im)
 
 
     def _get_tree_id(self, path_items, ind=0, id_=0):
