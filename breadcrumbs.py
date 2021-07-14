@@ -506,6 +506,9 @@ class Bread:
 
 
     def on_theme(self):
+        if self.hparent is None:
+            return
+
         dlg_proc(self.hparent, DLG_CTL_PROP_SET, index=self.n_sb, prop={ 'color': Colors.bg })
 
         n_path = len(self._path_items)
