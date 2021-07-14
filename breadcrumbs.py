@@ -649,7 +649,8 @@ class Colors:
         else:
             r,g,b = max(0, r-offset), max(0, g-offset), max(0, b-offset)
         cls.code_bg = r | (g<<8) | (b<<16)
-        cls.code_fg = colors['TabFontActive']['color']
+        _code_fg = colors['TabFontActive']['color']
+        cls.code_fg = cls.path_fg  if _code_fg == COLOR_NONE else  _code_fg
 
         cls.border = colors['TabBorderActive']['color']
 
