@@ -86,7 +86,7 @@ class Command:
         Colors.update()
 
         # subscribe to events
-        _events = 'on_open,on_save,on_state,on_focus'
+        _events = 'on_open,on_save,on_state,on_focus,on_close'
         if opt_code_navigation:
             _events += ',on_caret'
         _ev_str = 'cuda_breadcrumbs;{};;'.format(_events)

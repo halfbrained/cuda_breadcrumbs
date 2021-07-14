@@ -8,7 +8,7 @@ api=1.0.403
 
 [item1]
 section=events
-;events=on_caret
+; actual event list is in `breadcrumbs.py > Command.__init__`
 events=on_open,on_save,on_state,on_focus,on_close
 
 [item2]
