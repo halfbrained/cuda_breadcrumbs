@@ -242,6 +242,11 @@ class Command:
         breads = self._get_breads(ed)
         breads[0].show_file_tree()
 
+    # cmd
+    def show_code_tree(self):
+        breads = self._get_breads(ed)
+        breads[0].show_code_tree()
+
 
     def _update_callblack(self, tag='', info=''):
         h_ed = int(tag)
@@ -501,6 +506,13 @@ class Bread:
         self.on_fn_change()
         if self.fn:
             self.on_click(len(self._path_items) - 1)
+        else:
+            msg_status('Current document is not a file')
+
+    def show_code_tree(self):
+        self.on_fn_change()
+        if self.fn:
+            self.on_click(len(self._path_items) + len(self._code_items) - 1)
         else:
             msg_status('Current document is not a file')
 

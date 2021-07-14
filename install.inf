@@ -21,6 +21,11 @@ section=commands
 caption=Breadcrumbs\Show file-tree
 method=show_tree
 
+[item4]
+section=commands
+caption=Breadcrumbs\Show code-tree
+method=show_code_tree
+
 [item100]
 section=commands
 caption=Breadcrumbs\Config
