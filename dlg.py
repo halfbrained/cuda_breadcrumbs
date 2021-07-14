@@ -9,6 +9,8 @@ from cudatext import *
 * search
 """
 
+cmd_FileClose = 2510
+
 IS_WIN = app_proc(PROC_GET_OS_SUFFIX, '') == ''
 
 VK_ENTER = 13
@@ -228,7 +230,20 @@ class TreeDlg:
             if not sel_item.is_dir:     # open file
                 path = sel_item.full_path
                 if path != edt.get_filename():
-                    file_open(path)
+                    _key_state = app_proc(PROC_GET_KEYSTATE, '')
+
+                    replace = False
+                    _fo_opts = ''
+                    if (_key_state in {'c', 'cL'} # <Ctrl> or <Ctrl>+<LMB> - replace tab
+                            and  not edt.get_prop(PROP_MODIFIED)): # only if doc is not modified
+                        replace = True
+                        _fo_opts = '/donear'
+
+                    file_open(path, options=_fo_opts)
+
+                    if replace:
+                        edt.focus()
+                        edt.cmd(cmd_FileClose)
                     return True
             else:           # load directory
                 if not sel_item.children: # not checked yet
