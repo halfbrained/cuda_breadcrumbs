@@ -4,18 +4,19 @@ from pathlib import Path
 
 from cudatext import *
 
-"""
-#TODOs
-* search
-"""
 
 cmd_FileClose = 2510
 
 IS_WIN = app_proc(PROC_GET_OS_SUFFIX, '') == ''
 
+VK_BACKSPACE = 8
 VK_ENTER = 13
 VK_ESCAPE = 27
 VK_SPACE = 0x20
+VK_UP = 38
+VK_DOWN = 40
+VK_DELETE = 46
+VK_F3 = 114
 FILE_ATTRIBUTE_HIDDEN = 2 # stat.FILE_ATTRIBUTE_HIDDEN (for windows)
 
 
@@ -95,21 +96,36 @@ class TreeDlg:
                 'keypreview': True,
                 'topmost': True,
                 'on_key_down': self._on_key,
+                'on_key_press': self.on_key_press,
                 'on_deact': self.on_deact,
                 'on_hide': self.on_hide,
                 })
+
+        # edit ##########################
+        n = dlg_proc(h, DLG_CTL_ADD, 'editor_edit')
+        dlg_proc(h, DLG_CTL_PROP_SET, index=n, prop={
+                'name': 'search',
+                'align': ALIGN_TOP,
+                'sp_l': 1, 'sp_t': 1, 'sp_r': 1, # <^>
+                'on_change': self.on_search_change,
+                'texthint': 'Search',
+                })
+        _h_ed = dlg_proc(h, DLG_CTL_HANDLE, index=n)
+        self.edit = Editor(_h_ed)
+        self.n_edit = n
 
         # tree ##########################
         n = dlg_proc(h, DLG_CTL_ADD, 'treeview')
         dlg_proc(h, DLG_CTL_PROP_SET, index=n, prop={
                 'name': 'tree',
                 'align': ALIGN_CLIENT,
-                'sp_a': 1,
+                'sp_l': 1, 'sp_r': 1, 'sp_b': 1, # <>v
                 'on_change': self.tree_on_click,
                 'on_click_dbl': self.tree_on_click_dbl,
                 })
         self.h_tree = dlg_proc(h, DLG_CTL_HANDLE, index=n)
         tree_proc(self.h_tree, TREE_THEME)
+        self.n_tree = n
 
         # init icons
         self.h_im_file = tree_proc(self.h_tree, TREE_GET_IMAGELIST)
@@ -130,6 +146,8 @@ class TreeDlg:
         self._setup_tree(h_ed, on_hide, btn_rect)
 
         dlg_proc(self.h, DLG_SHOW_NONMODAL)
+        # focus tree
+        dlg_proc(self.h, DLG_CTL_FOCUS, index=self.n_tree)
 
         try:
             self.is_busy = True
@@ -157,6 +175,8 @@ class TreeDlg:
         self._setup_tree(h_ed, on_hide, btn_rect)
 
         dlg_proc(self.h, DLG_SHOW_NONMODAL)
+        # focus tree
+        dlg_proc(self.h, DLG_CTL_FOCUS, index=self.n_tree)
 
         try:
             self.is_busy = True
@@ -172,6 +192,12 @@ class TreeDlg:
         target_id = self._get_tree_id(path_items)
         if target_id is not None:
             tree_proc(self.h_tree, TREE_ITEM_SELECT, id_item=target_id)
+
+    def select_next(self, ignore_current, reverse=False):
+        txt = self.edit.get_text_all()
+        id_item = self._find_next(txt, ignore_current, reverse)
+        if isinstance(id_item, int):
+            tree_proc(self.h_tree, TREE_ITEM_SELECT, id_item=id_item)
 
 
     def hide(self):
@@ -201,6 +227,51 @@ class TreeDlg:
             self.hide()
             return False
 
+        elif key_code == VK_UP or key_code == VK_DOWN:
+            props_tree = dlg_proc(self.h, DLG_CTL_PROP_GET, index=self.n_tree)
+            if not props_tree['focused']:
+                dlg_proc(self.h, DLG_CTL_FOCUS, index=self.n_tree)
+
+        elif key_code == VK_BACKSPACE:
+            carets = self.edit.get_carets()
+            if carets and len(carets) == 1 and carets[0][2] == -1 and carets[0][0] > 0:
+                x = carets[0][0]
+                self.edit.delete(x-1, 0,  x, 0)
+                return False
+
+        elif key_code == VK_DELETE:
+            carets = self.edit.get_carets()
+            if carets and len(carets) == 1 and carets[0][2] == -1 \
+                    and carets[0][0] < len(self.edit.get_text_all()):
+                x = carets[0][0]
+                self.edit.delete(x,0,  x+1,0)
+                return False
+
+        elif key_code == VK_F3 and state in {'', 's'}:  # <F3> or <Shift+F3>
+            reverse = state == 's'
+            self.select_next(ignore_current=True, reverse=reverse)
+            return False
+
+
+    def on_key_press(self, id_dlg, id_ctl, data='', info=''):
+        char = chr(id_ctl)
+        state = data
+
+        if id_ctl < 32:
+            return
+
+        props_tree = dlg_proc(self.h, DLG_CTL_PROP_GET, index=self.n_tree)
+        if props_tree["focused"]:
+            cs = self.edit.get_carets()
+            if cs  and  len(cs) == 1  and  cs[0][2] == -1:
+                cx = cs[0][0]
+                self.edit.insert(cx, 0, char)
+                self.edit.set_caret(cx+1, 0)
+                return False
+
+
+    def on_search_change(self, id_dlg, id_ctl, data='', info=''):
+        self.select_next(ignore_current=False)
 
     def on_deact(self, id_dlg, id_ctl, data='', info=''):
         if self.is_busy:
@@ -294,6 +365,7 @@ class TreeDlg:
             self.h = self.init_form()
         self._update_colors()
         self._update_icons()
+        self.edit.set_text_all('')
 
         tree_proc(self.h_tree, TREE_ITEM_DELETE, id_item=0)
 
@@ -334,6 +406,70 @@ class TreeDlg:
                 res = self._get_tree_id(path_items, ind+1, id_=id_item)
                 if res is not None:
                     return res
+
+    def _find_next(self, s, ignore_current, reverse=False):
+        from itertools import dropwhile
+        from fnmatch import fnmatch
+
+        stop = object()
+        n_checks = 0
+
+        def search(id_parent, id_start=None): #SKIP
+            nonlocal n_checks
+            items = tree_proc(self.h_tree, TREE_ITEM_ENUM, id_item=id_parent)
+
+            if not items:
+                return None
+
+            if reverse:
+                items.reverse()
+            if id_start is not None:  # start from item-after-`id_start`  (if absent - from start)
+                items = list(dropwhile(lambda x: x[0] != id_start, items))[1:]  or  items
+
+            for id_,text in items:
+                n_checks += 1
+                text = text.lower()
+                if fnmatch(text, pattern):  return id_      # found match
+                if id_ == sel_id:           return stop     # did full circle -> stop
+                #print(f' no match: {text, id_}')
+                res = search(id_parent=id_)
+                if res is stop:             return stop     # stop
+                if res is not None:         return res      # found match
+
+                if n_checks > 100_000:      return stop     # failsafe just in case
+
+            # if at the end of tree - wrap
+            if id_parent == 0:
+                return search(id_parent=0)
+        #end search
+
+        if not s:
+            return
+
+        pattern = s.lower() + '*'
+
+        sel_id = tree_proc(self.h_tree, TREE_ITEM_GET_SELECTED)
+        sel_props = tree_proc(self.h_tree, TREE_ITEM_GET_PROPS, id_item=sel_id) # 'parent'
+
+        if not ignore_current  and  fnmatch(sel_props['text'], pattern):
+            return sel_id
+
+        # work
+        id_ = sel_id
+        id_start = None
+        props = sel_props
+        for i in range(16):  # avoid while-loop just in case
+            res = search(id_parent=id_, id_start=id_start)
+            if isinstance(res, int):    # found match
+                break
+            if id_ == 0:    # finished top node scan
+                break
+            # not match in this branch -> go up a level
+            props = tree_proc(self.h_tree, TREE_ITEM_GET_PROPS, id_item=id_)
+            id_start = id_
+            id_ = props['parent']
+
+        return res  if isinstance(res, int) else  None
 
 
 def load_filepath_tree(fn, root):

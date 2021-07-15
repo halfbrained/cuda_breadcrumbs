@@ -456,7 +456,10 @@ class Bread:
         #if len(self._path_items) == 1: # no file
             #return
 
-        self.ed.focus()    # focus editor of clicked breadcrumbs-cell, so `ed` is proper Editor
+        if self.ed.h not in [ed.get_prop(PROP_HANDLE_PRIMARY), ed.get_prop(PROP_HANDLE_SECONDARY)]:
+            self.ed.focus()    # focus editor of clicked breadcrumbs-cell, so `ed` is proper Editor
+
+        _h_ed = ed.get_prop(PROP_HANDLE_SELF)
 
         # if path-item click
         if cell_ind < len(self._path_items):
@@ -485,7 +488,7 @@ class Bread:
                     fn       = str(path),
                     root     = _parent,
                     btn_rect = btn_rect,
-                    h_ed     = self.ed.h,
+                    h_ed     = _h_ed,
                     on_hide  = lambda cell_ind=cell_ind: self._clear_cell_lines(cell_ind),
             )
 
@@ -500,21 +503,21 @@ class Bread:
 
             _btn_rect = self._get_cell_rect(cell_ind)
             _on_hide = lambda cell_ind=cell_ind: self._clear_cell_lines(cell_ind)
-            self.tree.show_code(_code_path_items, _btn_rect, h_ed=self.ed.h, on_hide=_on_hide)
+            self.tree.show_code(_code_path_items, _btn_rect, h_ed=_h_ed, on_hide=_on_hide)
 
     def show_file_tree(self):
         self.on_fn_change()
         if self.fn:
             self.on_click(len(self._path_items) - 1)
         else:
-            msg_status('Current document is not a file')
+            msg_status('Breadcrumbs doesn\'t work for untitled tabs')
 
     def show_code_tree(self):
         self.on_fn_change()
         if self.fn:
             self.on_click(len(self._path_items) + len(self._code_items) - 1)
         else:
-            msg_status('Current document is not a file')
+            msg_status('Breadcrumbs doesn\'t work for untitled tabs')
 
 
     def on_theme(self):
