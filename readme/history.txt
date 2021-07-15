@@ -1,2 +1,10 @@
+2021.07.15
++ add: plugin shows additional buttons from the code-tree, ie gives navigation inside the document symbols
++ add: tree-dialog has additional "Search" field, and handles F3 to find-next, Shift+F3 to find-previous
++ add: added commands in the "Plugins / Breadcrumbs": "Show file-tree", "Show code-tree"
++ add: Ctrl+click in the tree-dialog _replaces_ the current tab with the clicked file
++ add: plugin works also for CudaText picture-tabs and binary-viewer-tabs
++ add: options (to show code-tree buttons, to show path-separator, etc)
+
 2021.07.04
 initial version
