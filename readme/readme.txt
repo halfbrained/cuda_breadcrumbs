@@ -10,6 +10,12 @@ Clicking on each button shows the popup with file-system listing, showing the
 folder containing  the clicked item. This popup supports basic tree-view navigation,
 you can click files there to open them in CudaText.
 
+Plugin can also show buttons for Code-Tree nodes. This must be enabled first
+in the config file - turn on the option "code_navigation".
+Clicking the buttons from the code-tree shows the same tree-popup but with
+a different content - with symbols of the documents. Clicking the nodes
+in the tree-popup scrolls the document to different symbols.
+
 
 Configuration
 -------------
