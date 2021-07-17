@@ -6,6 +6,8 @@ from itertools import zip_longest
 
 from cudatext import *
 
+from cudax_lib import get_translation
+_ = get_translation(__file__)  # I18N
 
 """
 #TODO
@@ -112,8 +114,8 @@ class Command:
         try:
             opt_root_dir_source = list(map(int, _root_dir_source_val.split(',') ))
         except:
-            print('NOTE: Breadcrumbs - Unable to parse option value: "root_dir_source" should be '
-                    + 'comma-separated string of integers 0-2')
+            print(_('NOTE: Breadcrumbs - Unable to parse option value: "root_dir_source" should be '
+                    'comma-separated string of integers 0-2'))
 
         opt_position_bottom = str_to_bool(ini_read(fn_config, OPT_SEC, 'position_bottom', '1'))
         opt_show_root_parents = str_to_bool(ini_read(fn_config, OPT_SEC, 'show_root_parents', '1'))
@@ -510,14 +512,14 @@ class Bread:
         if self.fn:
             self.on_click(len(self._path_items) - 1)
         else:
-            msg_status('Breadcrumbs doesn\'t work for untitled tabs')
+            msg_status(_('Breadcrumbs doesn\'t work for untitled tabs'))
 
     def show_code_tree(self):
         self.on_fn_change()
         if self.fn:
             self.on_click(len(self._path_items) + len(self._code_items) - 1)
         else:
-            msg_status('Breadcrumbs doesn\'t work for untitled tabs')
+            msg_status(_('Breadcrumbs doesn\'t work for untitled tabs'))
 
 
     def on_theme(self):

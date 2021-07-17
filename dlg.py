@@ -4,6 +4,8 @@ from pathlib import Path
 
 from cudatext import *
 
+from cudax_lib import get_translation
+_ = get_translation(__file__)  # I18N
 
 cmd_FileClose = 2510
 
@@ -89,7 +91,7 @@ class TreeDlg:
 
         ###### FORM #######################
         dlg_proc(h, DLG_PROP_SET, prop={
-                'cap': 'BreadCrumbs Tree',
+                'cap': _('BreadCrumbs Tree'),
                 'w': DLG_W, 'h': DLG_H,
                 'color': color_form_bg,
                 'border': DBORDER_NONE,
@@ -108,7 +110,7 @@ class TreeDlg:
                 'align': ALIGN_TOP,
                 'sp_l': 1, 'sp_t': 1, 'sp_r': 1, # <^>
                 'on_change': self.on_search_change,
-                'texthint': 'Search',
+                'texthint': _('Search'),
                 })
         _h_ed = dlg_proc(h, DLG_CTL_HANDLE, index=n)
         self.edit = Editor(_h_ed)
