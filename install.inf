@@ -9,7 +9,7 @@ api=1.0.404
 [item1]
 section=events
 ; actual event list is in `breadcrumbs.py > Command.__init__`
-events=on_open,on_save,on_state,on_focus,on_close
+events=on_open,on_save,on_state~,on_focus~,on_close~
 
 [item2]
 section=commands
