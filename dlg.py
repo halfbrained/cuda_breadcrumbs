@@ -190,10 +190,11 @@ class TreeDlg:
         edt = Editor(self.h_ed)
         edt.action(EDACTION_CODETREE_FILL, self.h_tree)
 
-        # select `fn` tree item
-        target_id = self._get_tree_id(path_items)
-        if target_id is not None:
-            tree_proc(self.h_tree, TREE_ITEM_SELECT, id_item=target_id)
+        # select specified tree item
+        if path_items:
+            target_id = self._get_tree_id(path_items)
+            if target_id is not None:
+                tree_proc(self.h_tree, TREE_ITEM_SELECT, id_item=target_id)
 
     def select_next(self, ignore_current, reverse=False):
         txt = self.edit.get_text_all()

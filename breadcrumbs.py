@@ -497,9 +497,13 @@ class Bread:
             )
 
         else:   # if code-item click
-            _code_ind = cell_ind - len(self._path_items)
-            _code_path_items = self._code_items[:_code_ind+1]
-            #print(f'code clicked: {Path(*self._path_items)} -- {_code_path_items}')
+            if self._code_items:
+                _code_ind = cell_ind - len(self._path_items)
+                _code_path_items = self._code_items[:_code_ind+1]
+                #print(f'code clicked: {Path(*self._path_items)} -- {_code_path_items}')
+            else:   # show tree without code-path -- over last path item
+                cell_ind = len(self._path_items) - 1
+                _code_path_items = ()
 
             # highligh clicked cell
             _cmd = STATUSBAR_SET_CELL_COLOR_LINE2 if opt_position_bottom else STATUSBAR_SET_CELL_COLOR_LINE
@@ -519,7 +523,7 @@ class Bread:
     def show_code_tree(self):
         self.on_fn_change()
         if self.fn:
-            self.on_click(len(self._path_items) + len(self._code_items) - 1)
+            self.on_click(len(self._path_items) + max(0, len(self._code_items) - 1))
         else:
             msg_status(_('Breadcrumbs doesn\'t work for untitled tabs'))
 
