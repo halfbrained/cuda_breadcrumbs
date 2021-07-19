@@ -334,6 +334,7 @@ class Bread:
         self._root = None
         self._path_items = []
         self._code_items = []
+        self._n_prefix = 0
 
         if self.fn:
             self._add_ui()
@@ -408,7 +409,8 @@ class Bread:
                 or len(self._path_items) != len(path_items) \
                 or len(self._code_items) != len(code_items):
             if opt_show_root_parents  and  PROJECT_DIR  and  self.fn.startswith(PROJECT_DIR):
-                _n_prefix = len(Path(PROJECT_DIR).parent.parts)
+                _n_proj_path = len(Path(self.fn).parts) - len(Path(PROJECT_DIR).parent.parts)
+                _n_prefix = len(path_items) - _n_proj_path
             else:
                 _n_prefix = 0
             self._update_bgs(len(path_items),  len(code_items),  _n_prefix)
@@ -530,7 +532,8 @@ class Bread:
 
         n_path = len(self._path_items)
         for i in range(n_path): # path cell colors
-            set_cell_colors(self.h_sb, i, bg=Colors.path_bg, fg=Colors.path_fg)
+            _bg = Colors.path_bg  if not opt_show_root_parents or i >= self._n_prefix else  Colors.path_bg_root_parents
+            set_cell_colors(self.h_sb, i, bg=_bg, fg=Colors.path_fg)
 
         _code_inds = range(n_path, n_path+len(self._code_items))
         for i in _code_inds:    # code cell colors
@@ -562,6 +565,7 @@ class Bread:
         self.h_sb = None
 
     def _update_bgs(self, n_path, n_code, n_prefix):
+        self._n_prefix = n_prefix
         _old_n_path = len(self._path_items)  if self._path_items else  0
         _old_n_code = len(self._code_items)  if self._code_items else  0
         old_n_total = _old_n_path + _old_n_code
