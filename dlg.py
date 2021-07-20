@@ -443,19 +443,8 @@ class TreeDlg:
     def _check_theme(self):
         newtheme = app_proc(PROC_THEME_UI_GET, '')
         if newtheme != self._theme:
-
-            import cudatext as ct
-
             self._theme = newtheme
-
-            colors = app_proc(PROC_THEME_UI_DICT_GET, '')
-            for name,val in vars(ct).items():
-                if name.startswith('COLOR_ID_') and type(val) == str:
-                    theme_item_name = val
-                    theme_item = colors.get(theme_item_name)
-                    if theme_item is not None:
-                        theme_col = theme_item['color']
-                        self.edit.set_prop(PROP_COLOR, (theme_item_name, theme_col))
+            self.edit.cmd(EDACTION_APPLY_THEME)
 
 
     def _get_tree_id(self, path_items, ind=0, id_=0):
