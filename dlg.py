@@ -4,7 +4,7 @@ from pathlib import Path
 
 from cudatext import *
 
-from cudax_lib import get_translation
+from cudax_lib import get_translation, get_opt
 _ = get_translation(__file__)  # I18N
 
 cmd_FileClose = 2510
@@ -25,6 +25,7 @@ FILE_ATTRIBUTE_HIDDEN = 2 # stat.FILE_ATTRIBUTE_HIDDEN (for windows)
 DLG_W = 250
 DLG_H = 400
 CODE_TREE_H = DLG_H
+BTN_SIZE = app_proc(PROC_GET_GUI_HEIGHT, 'button')
 
 
 SORT_TYPE = 'name'
@@ -63,6 +64,9 @@ class TreeDlg:
         self.h = None
         self.h_tree = None
         self.h_ed = None
+        self.h_prev = None
+        self.h_next = None
+
         self.data = None
         self.id_map = {} # tree id -> `Node`
 
@@ -89,6 +93,10 @@ class TreeDlg:
         colors = app_proc(PROC_THEME_UI_DICT_GET, '')
         color_form_bg = colors['TabBg']['color']
 
+        _os_suffix = app_proc(PROC_GET_OS_SUFFIX, '')
+        font_name = get_opt('font_name'+_os_suffix)
+        font_size = get_opt('font_size'+_os_suffix)
+
         ###### FORM #######################
         dlg_proc(h, DLG_PROP_SET, prop={
                 'cap': _('BreadCrumbs Tree'),
@@ -103,18 +111,59 @@ class TreeDlg:
                 'on_hide': self.on_hide,
                 })
 
+        #### Top Row ##########################
+        n = dlg_proc(h, DLG_CTL_ADD, 'panel')
+        dlg_proc(h, DLG_CTL_PROP_SET, index=n, prop={
+                'name': 'top_row',
+                'align': ALIGN_TOP,
+                'sp_l': 1, 'sp_t': 1, 'sp_r': 1, 'sp_b': 1,
+                'h': BTN_SIZE,
+                })
+
+        # Find next btn ######
+        n = dlg_proc(h, DLG_CTL_ADD, 'button_ex')
+        dlg_proc(h, DLG_CTL_PROP_SET, index=n, prop={
+                'name': 'next',
+                'p': 'top_row',
+                'a_l': None, 'a_t': ('', '['), 'a_r': ('', ']'), 'a_b': ('', ']'),
+                'w': BTN_SIZE,
+                'on_change': lambda *args,**vargs: self.select_next(ignore_current=True, reverse=False),
+                'val': '>',
+                })
+        self.h_next = h_next = dlg_proc(h, DLG_CTL_HANDLE, index=n)
+        button_proc(h_next, BTN_SET_TEXT, '>')
+        button_proc(h_next, BTN_SET_HINT, _('Find next - F3'))
+        button_proc(h_next, BTN_SET_WIDTH, BTN_SIZE)
+
+        # Find prev btn ######
+        n = dlg_proc(h, DLG_CTL_ADD, 'button_ex')
+        dlg_proc(h, DLG_CTL_PROP_SET, index=n, prop={
+                'name': 'prev',
+                'p': 'top_row',
+                'a_l': None, 'a_t': ('', '['), 'a_r': ('next', '['), 'a_b': ('', ']'),
+                'w': BTN_SIZE,
+                'on_change': lambda *args,**vargs: self.select_next(ignore_current=True, reverse=True),
+                })
+        self.h_prev = h_prev = dlg_proc(h, DLG_CTL_HANDLE, index=n)
+        button_proc(h_prev, BTN_SET_TEXT, '<')
+        button_proc(h_prev, BTN_SET_HINT, _('Find previous - Shift+F3'))
+        button_proc(h_prev, BTN_SET_WIDTH, BTN_SIZE)
+
         # edit ##########################
         n = dlg_proc(h, DLG_CTL_ADD, 'editor_edit')
         dlg_proc(h, DLG_CTL_PROP_SET, index=n, prop={
                 'name': 'search',
-                'align': ALIGN_TOP,
-                'sp_l': 1, 'sp_t': 1, 'sp_r': 1, # <^>
+                'p': 'top_row',
+                'a_l': ('', '['), 'a_t': ('', '['), 'a_r': ('prev', '['), 'a_b': ('', ']'),
+                'sp_r': BTN_SIZE//4,
                 'on_change': self.on_search_change,
                 'texthint': _('Search'),
                 })
         _h_ed = dlg_proc(h, DLG_CTL_HANDLE, index=n)
         self.edit = Editor(_h_ed)
         self.n_edit = n
+        if font_name and font_size:
+            self.edit.set_prop(PROP_FONT, (font_name, font_size))
 
         # tree ##########################
         n = dlg_proc(h, DLG_CTL_ADD, 'treeview')
