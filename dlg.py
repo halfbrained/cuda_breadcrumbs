@@ -444,7 +444,7 @@ class TreeDlg:
         newtheme = app_proc(PROC_THEME_UI_GET, '')
         if newtheme != self._theme:
             self._theme = newtheme
-            self.edit.cmd(EDACTION_APPLY_THEME)
+            self.edit.action(EDACTION_APPLY_THEME)
 
 
     def _get_tree_id(self, path_items, ind=0, id_=0):
