@@ -4,7 +4,7 @@ from pathlib import Path
 
 from cudatext import *
 
-from cudax_lib import get_translation, get_opt
+from cudax_lib import get_translation
 _ = get_translation(__file__)  # I18N
 
 cmd_FileClose = 2510
@@ -93,10 +93,6 @@ class TreeDlg:
         colors = app_proc(PROC_THEME_UI_DICT_GET, '')
         color_form_bg = colors['TabBg']['color']
 
-        _os_suffix = app_proc(PROC_GET_OS_SUFFIX, '')
-        font_name = get_opt('font_name'+_os_suffix)
-        font_size = get_opt('font_size'+_os_suffix)
-
         ###### FORM #######################
         dlg_proc(h, DLG_PROP_SET, prop={
                 'cap': _('BreadCrumbs Tree'),
@@ -162,8 +158,6 @@ class TreeDlg:
         _h_ed = dlg_proc(h, DLG_CTL_HANDLE, index=n)
         self.edit = Editor(_h_ed)
         self.n_edit = n
-        if font_name and font_size:
-            self.edit.set_prop(PROP_FONT, (font_name, font_size))
 
         # tree ##########################
         n = dlg_proc(h, DLG_CTL_ADD, 'treeview')
