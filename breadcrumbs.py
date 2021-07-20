@@ -444,7 +444,7 @@ class Bread:
                     new = ellipsize(new)
                 statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_TEXT, index=i+offset, value=new)
                 if hint is not None:
-                    statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_HINT, index=i, value=hint)
+                    statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_HINT, index=i+offset, value=hint)
                 _callback = "module={};cmd={};info={}:{};".format(
                                         'cuda_breadcrumbs', 'on_cell_click', i+offset, self.ed.h)
                 statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_CALLBACK, index=i+offset, value=_callback)
