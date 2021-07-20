@@ -77,6 +77,7 @@ class TreeDlg:
         self.is_busy = False
 
         self._mode = self.MODE_NONE
+        self._theme = None
 
         self._on_hide = None
 
@@ -89,6 +90,8 @@ class TreeDlg:
 
     def init_form(self):
         h = dlg_proc(0, DLG_CREATE)
+
+        self._theme = app_proc(PROC_THEME_UI_GET, '')
 
         colors = app_proc(PROC_THEME_UI_DICT_GET, '')
         color_form_bg = colors['TabBg']['color']
@@ -411,6 +414,7 @@ class TreeDlg:
             self.h = self.init_form()
         self._update_colors()
         self._update_icons()
+        self._check_theme()
         self.edit.set_text_all('')
 
         tree_proc(self.h_tree, TREE_ITEM_DELETE, id_item=0)
@@ -435,6 +439,23 @@ class TreeDlg:
 
         if h_im is not None:
             tree_proc(self.h_tree, TREE_SET_IMAGELIST, text=h_im)
+
+    def _check_theme(self):
+        newtheme = app_proc(PROC_THEME_UI_GET, '')
+        if newtheme != self._theme:
+
+            import cudatext as ct
+
+            self._theme = newtheme
+
+            colors = app_proc(PROC_THEME_UI_DICT_GET, '')
+            for name,val in vars(ct).items():
+                if name.startswith('COLOR_ID_') and type(val) == str:
+                    theme_item_name = val
+                    theme_item = colors.get(theme_item_name)
+                    if theme_item is not None:
+                        theme_col = theme_item['color']
+                        self.edit.set_prop(PROP_COLOR, (theme_item_name, theme_col))
 
 
     def _get_tree_id(self, path_items, ind=0, id_=0):
