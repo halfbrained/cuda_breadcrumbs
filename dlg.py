@@ -33,6 +33,7 @@ SORT_REVERSE = False
 SHOW_HIDDEN_FILES = False
 POSITION_BOTTOM = True
 
+#fake_node = FileNode -- declared later
 
 def lock_tree(meth):
 
@@ -170,6 +171,7 @@ class TreeDlg:
                 'sp_l': 1, 'sp_r': 1, 'sp_b': 1, # <>v
                 'on_change': self.tree_on_click,
                 'on_click_dbl': self.tree_on_click_dbl,
+                'on_unfold': self.tree_on_unfold,
                 })
         self.h_tree = dlg_proc(h, DLG_CTL_HANDLE, index=n)
         tree_proc(self.h_tree, TREE_THEME)
@@ -262,6 +264,10 @@ class TreeDlg:
         if self._activate_item():
             self.hide()
 
+    def tree_on_unfold(self, id_dlg, id_ctl, data='', info=''):
+        id_item = data
+        self._activate_item(id_item=id_item)
+
 
     def _on_key(self, id_dlg, id_ctl, data='', info=''):
         key_code = id_ctl
@@ -338,7 +344,6 @@ class TreeDlg:
         """ opens tree item (file, directory)
             returns True if ok to close
         """
-
         if id_item is None:
             id_item = tree_proc(self.h_tree, TREE_ITEM_GET_SELECTED)
             if id_item is None:
@@ -366,7 +371,11 @@ class TreeDlg:
                         edt.cmd(cmd_FileClose)
                     return True
             else:           # load directory
-                if not sel_item.children: # not checked yet
+                if len(sel_item.children) == 1  and  sel_item.children[0] is fake_node: # not checked yet
+                    # remove fake item
+                    items = tree_proc(self.h_tree, TREE_ITEM_ENUM, id_item=sel_item.id)
+                    tree_proc(self.h_tree, TREE_ITEM_DELETE, id_item=items[0][0])
+
                     sel_item.children = load_dir(sel_item.full_path, parent=sel_item)
                     self._fill_tree(sel_item.children,  parent=sel_item.id)
                     if sel_item.children:
@@ -538,6 +547,8 @@ def load_filepath_tree(fn, root):
     item = data
     path_parts = list(rel_path.parts)
     while True:
+        if len(item.children) == 1  and  item.children[0] is fake_node:
+            item.children.clear()
         item.children.extend(load_dir(path, parent=item))
 
         if not path_parts:
@@ -570,7 +581,7 @@ def load_dir(path, parent=None):
     items = []
     try:
         for entry in os.scandir(path):
-            children = [] if entry.is_dir() else ()
+            children = [fake_node] if entry.is_dir() else ()
             if IS_WIN:
                 is_hidden = bool(entry.stat().st_file_attributes & FILE_ATTRIBUTE_HIDDEN)
             else:
@@ -678,6 +689,8 @@ class FileNode(Node):
             'children': [ch.as_dict() for ch in self.children],
             'id': self.id,
         }
+
+fake_node = FileNode('<fake>',  False, False,  parent=None)
 
 
 class FileIcons:
