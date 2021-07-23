@@ -4,7 +4,7 @@ from pathlib import Path
 
 from cudatext import *
 
-from cudax_lib import get_translation
+from cudax_lib import get_translation, get_opt
 _ = get_translation(__file__)  # I18N
 
 cmd_FileClose = 2510
@@ -395,7 +395,8 @@ class TreeDlg:
         elif self._mode == self.MODE_CODE:
             x0,y0, x1,y1 = tree_proc(self.h_tree, TREE_ITEM_GET_RANGE, id_item=id_item)
             if x0 != -1  and  y0 != -1:     # move caret to target range
-                _top = max(0, y0-3)
+                _indent_y = abs(get_opt('find_indent_vert'))
+                _top = max(0, y0-_indent_y)
                 edt.set_prop(PROP_LINE_TOP, _top)
                 edt.set_caret(x0,y0, options=CARET_OPTION_UNFOLD)
 
