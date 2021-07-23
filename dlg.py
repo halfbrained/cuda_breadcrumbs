@@ -213,7 +213,11 @@ class TreeDlg:
         _rel_path = fn.relative_to(root)
         sel_item = get_data_item(_rel_path.parts,  self.data)
         if sel_item  and  sel_item.parent:
-            tree_proc(self.h_tree, TREE_ITEM_SELECT, id_item=sel_item.id)
+            try:
+                self.is_busy = True
+                tree_proc(self.h_tree, TREE_ITEM_SELECT, id_item=sel_item.id)
+            finally:
+                self.is_busy = False
 
 
     def show_code(self, path_items, btn_rect, h_ed, on_hide=None):
@@ -242,7 +246,11 @@ class TreeDlg:
         if path_items:
             target_id = self._get_tree_id(path_items)
             if target_id is not None:
-                tree_proc(self.h_tree, TREE_ITEM_SELECT, id_item=target_id)
+                try:
+                    self.is_busy = True
+                    tree_proc(self.h_tree, TREE_ITEM_SELECT, id_item=target_id)
+                finally:
+                    self.is_busy = False
 
     def select_next(self, ignore_current, reverse=False):
         txt = self.edit.get_text_all()
@@ -265,6 +273,9 @@ class TreeDlg:
             self.hide()
 
     def tree_on_unfold(self, id_dlg, id_ctl, data='', info=''):
+        if self.is_busy:
+            return
+
         id_item = data
         self._activate_item(id_item=id_item)
 
