@@ -26,7 +26,7 @@ DLG_W = 250
 DLG_H = 400
 CODE_TREE_H = DLG_H
 BTN_SIZE = app_proc(PROC_GET_GUI_HEIGHT, 'button')
-
+CODE_NAV_TOP_INDENT = 5
 
 SORT_TYPE = 'name'
 SORT_REVERSE = False
@@ -395,7 +395,7 @@ class TreeDlg:
         elif self._mode == self.MODE_CODE:
             x0,y0, x1,y1 = tree_proc(self.h_tree, TREE_ITEM_GET_RANGE, id_item=id_item)
             if x0 != -1  and  y0 != -1:     # move caret to target range
-                _top = max(0, y0-5)
+                _top = max(0, y0-CODE_NAV_TOP_INDENT)
                 edt.set_prop(PROP_LINE_TOP, _top)
                 edt.set_caret(x0,y0, options=CARET_OPTION_UNFOLD)
 
