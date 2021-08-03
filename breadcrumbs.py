@@ -169,6 +169,10 @@ class Command:
         if ed_self.h not in self._opened_h_eds:
             return # ignore `on_focus` that happens before `on_open`
 
+        breads = self._get_breads(ed_self)
+        if len(breads) == 1:
+            breads[0].on_focus(ed_self)
+
         if ed_self.get_prop(PROP_HANDLE_SELF) not in self._ed_uis:  # need for lazy bread-injection
             self._update(ed_self)
 
@@ -321,10 +325,14 @@ class Bread:
     _tree = None
 
     def __init__(self, ed_self, is_visible):
-        self.ed = Editor(ed_self.get_prop(PROP_HANDLE_SELF))  if ed_self is ed else  ed_self
+        _h_ed = ed_self.get_prop(PROP_HANDLE_SELF)
+        self.ed = Editor(_h_ed)  if ed_self is ed else  ed_self
         self.fn = self.ed.get_filename(options="*")
         self.is_visible = is_visible
 
+        _handles = [self.ed.get_prop(PROP_HANDLE_PRIMARY), self.ed.get_prop(PROP_HANDLE_SECONDARY)]
+        self.ed_b = Editor(_handles[1])  if _handles[0] == _h_ed else  Editor(_handles[0])
+        self.last_ed = self.ed
 
         self.hparent = None
         self.n_sb = None
@@ -395,8 +403,13 @@ class Bread:
 
         _old_root = self._root
 
+        if self.fn == self.ed_b.get_filename():
+            edt = self.last_ed
+        else:
+            edt = self.ed
+
         path_items = self._get_path_items()
-        code_items = CodeTree.get_carets_tree_path(self.ed)
+        code_items = CodeTree.get_carets_tree_path(edt)
         code_icons = CodeTree.get_icons()
 
         root_changed = self._root != _old_root
@@ -425,7 +438,7 @@ class Bread:
                         new = ellipsize(new)
                     statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_TEXT, index=i, value=new)
                     _callback = "module={};cmd={};info={}:{};".format(
-                                            'cuda_breadcrumbs', 'on_cell_click', i, self.ed.h)
+                                            'cuda_breadcrumbs', 'on_cell_click', i, edt.h)
                     statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_CALLBACK, index=i, value=_callback)
                     if i == 0  and  self._root:
                         statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_HINT, index=i, value=self._root)
@@ -446,7 +459,7 @@ class Bread:
                 if hint is not None:
                     statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_HINT, index=i+offset, value=hint)
                 _callback = "module={};cmd={};info={}:{};".format(
-                                        'cuda_breadcrumbs', 'on_cell_click', i+offset, self.ed.h)
+                                        'cuda_breadcrumbs', 'on_cell_click', i+offset, edt.h)
                 statusbar_proc(self.h_sb, STATUSBAR_SET_CELL_CALLBACK, index=i+offset, value=_callback)
                 # update icons from tree data
                 if opt_code_navigation != 0  and  self.h_im is not None:
@@ -460,8 +473,9 @@ class Bread:
         #if len(self._path_items) == 1: # no file
             #return
 
-        if self.ed.h not in [ed.get_prop(PROP_HANDLE_PRIMARY), ed.get_prop(PROP_HANDLE_SECONDARY)]:
-            self.ed.focus()    # focus editor of clicked breadcrumbs-cell, so `ed` is proper Editor
+        _ed_handles = {ed.get_prop(PROP_HANDLE_PRIMARY), ed.get_prop(PROP_HANDLE_SECONDARY)}
+        if {self.ed.h, self.ed_b.h}.isdisjoint(_ed_handles):    # if no handles in common with active editor
+            self.last_ed.focus()    # focus editor of clicked breadcrumbs-cell, so `ed` is proper Editor
 
         _h_ed = ed.get_prop(PROP_HANDLE_SELF)
 
@@ -512,6 +526,11 @@ class Bread:
             _btn_rect = self._get_cell_rect(cell_ind)
             _on_hide = lambda cell_ind=cell_ind: self._clear_cell_lines(cell_ind)
             self.tree.show_code(_code_path_items, _btn_rect, h_ed=_h_ed, on_hide=_on_hide)
+
+
+    def on_focus(self, ed_self):
+        self.last_ed = self.ed  if(ed_self.h == self.ed.h)else  self.ed_b
+
 
     def show_file_tree(self):
         self.on_fn_change()
