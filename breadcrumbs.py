@@ -147,7 +147,7 @@ class Command:
         file_open(fn_config)
 
     def on_caret(self, ed_self):
-        _callback = "module=cuda_breadcrumbs;cmd=_update_callblack;"
+        _callback = "module=cuda_breadcrumbs;cmd=_update_callback;"
         timer_proc(TIMER_START_ONE, _callback, 500, tag=str(ed_self.h))
 
 
@@ -169,9 +169,10 @@ class Command:
         if ed_self.h not in self._opened_h_eds:
             return # ignore `on_focus` that happens before `on_open`
 
-        breads = self._get_breads(ed_self)
-        if len(breads) == 1:
-            breads[0].on_focus(ed_self)
+        if opt_code_navigation:
+            breads = self._get_breads(ed_self)
+            if len(breads) == 1:
+                breads[0].on_focus(ed_self)
 
         if ed_self.get_prop(PROP_HANDLE_SELF) not in self._ed_uis:  # need for lazy bread-injection
             self._update(ed_self)
@@ -205,7 +206,7 @@ class Command:
 
         elif state == APPSTATE_CODETREE_AFTER_FILL:
             if opt_code_navigation:
-                _callback = "module=cuda_breadcrumbs;cmd=_update_callblack;"
+                _callback = "module=cuda_breadcrumbs;cmd=_update_callback;"
                 _h_ed = ed.get_prop(PROP_HANDLE_SELF)
                 timer_proc(TIMER_START_ONE, _callback, 500, tag=str(_h_ed))
 
@@ -254,7 +255,7 @@ class Command:
         breads[0].show_code_tree()
 
 
-    def _update_callblack(self, tag='', info=''):
+    def _update_callback(self, tag='', info=''):
         h_ed = int(tag)
         if h_ed == ed.get_prop(PROP_HANDLE_SELF):
             self._update(ed)
