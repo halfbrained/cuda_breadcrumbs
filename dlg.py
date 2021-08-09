@@ -259,6 +259,31 @@ class TreeDlg:
             tree_proc(self.h_tree, TREE_ITEM_SELECT, id_item=id_item)
 
 
+    def filesystem_go_up(self):
+        if self._mode is not self.MODE_FILE:
+            return
+
+        fn = self.data.name
+        root = os.path.dirname(fn)
+        root, fn = Path(root), Path(fn)
+        if fn == root:
+            return
+
+        self.data = load_filepath_tree(fn, root)
+
+        self._fill_tree( self.data.children )
+
+        # select `fn` tree item
+        _rel_path = fn.relative_to(root)
+        sel_item = get_data_item(_rel_path.parts,  self.data)
+        if sel_item  and  sel_item.parent:
+            try:
+                self.is_busy = True
+                tree_proc(self.h_tree, TREE_ITEM_SELECT, id_item=sel_item.id)
+            finally:
+                self.is_busy = False
+
+
     def hide(self):
         dlg_proc(self.h, DLG_HIDE)
 
@@ -298,12 +323,15 @@ class TreeDlg:
             if not props_tree['focused']:
                 dlg_proc(self.h, DLG_CTL_FOCUS, index=self.n_tree)
 
-        elif key_code == VK_BACKSPACE:
+        elif key_code == VK_BACKSPACE  and  not state:
             carets = self.edit.get_carets()
             if carets and len(carets) == 1 and carets[0][2] == -1 and carets[0][0] > 0:
                 x = carets[0][0]
                 self.edit.delete(x-1, 0,  x, 0)
                 return False
+
+        elif key_code == VK_BACKSPACE  and  state == 's':
+            self.filesystem_go_up()
 
         elif key_code == VK_DELETE:
             carets = self.edit.get_carets()
