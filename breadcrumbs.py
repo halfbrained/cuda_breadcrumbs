@@ -113,9 +113,9 @@ class Command:
         _root_dir_source_val = ini_read(fn_config, OPT_SEC, 'root_dir_source', '0')
         try:
             opt_root_dir_source = list(map(int, _root_dir_source_val.split(',') ))
-        except:
+        except Exception:
             print(_('NOTE: Breadcrumbs - Unable to parse option value: "root_dir_source" should be '
-                    'comma-separated string of integers 0-2'))
+                    'a comma-separated string of integers 0-2'))
 
         opt_position_bottom = str_to_bool(ini_read(fn_config, OPT_SEC, 'position_bottom', '1'))
         opt_show_root_parents = str_to_bool(ini_read(fn_config, OPT_SEC, 'show_root_parents', '1'))
@@ -302,7 +302,7 @@ class Command:
                 # if two editors are the same file - need only one bread,  two files - two breads
                 if fn0 == fn2  and  fn0 is not None:
                     self._ed_uis[h_ed2] = bc0 # point both editors to the same Bread
-                    h_ed2 = None    # -- same file - dont add second ed to result
+                    h_ed2 = None    # -- same file - don't add second ed to result
                 else:
                     bc2 = Bread(ed2, SHOW_BAR)
                     self._ed_uis[h_ed2] = bc2
@@ -731,7 +731,7 @@ class CodeTree:
                 id_ = node_id
                 while True:
                     props = tree_proc(cls._h_active_tree, TREE_ITEM_GET_PROPS, id_item=id_)
-                    names.append(props['text'] or '<empty>')
+                    names.append(props['text'] or _('<empty>'))
                     icons.append(props['icon'])
 
                     if not props  or  props['parent'] == 0:
